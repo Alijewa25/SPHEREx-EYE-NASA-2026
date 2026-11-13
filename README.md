@@ -35,10 +35,11 @@ SPHEREx-EYE-NASA-2026/
 └── README.md
 Quick Start (Local Setup)
 Clone the repository:
+```
 
 Bash
-```git clone [https://github.com/Alijewa25/SPHEREx-EYE-NASA-2026.git](https://github.com/Alijewa25/SPHEREx-EYE-NASA-2026.git)
-cd SPHEREx-EYE-NASA-2026```
+```git clone [https://github.com/Alijewa25/SPHEREx-EYE-NASA-2026.git](https://github.com/Alijewa25/SPHEREx-EYE-NASA-2026.git)```
+```cd SPHEREx-EYE-NASA-2026```
 
 Install Python dependencies:
 
@@ -46,12 +47,10 @@ Bash```
 python3 -m venv venv
 source venv/bin/activate
 pip install -r backend/requirements.txt```
-Run the FastAPI backend:
 
+Run the FastAPI backend:
 Bash
-```
-uvicorn backend.app.main:app --reload
-```
+```uvicorn backend.app.main:app --reload```
 Launch the Frontend:
 ```Open frontend/index.html in your browser (or via VS Code Live Server).```
 
