@@ -33,15 +33,15 @@ SPHEREx-EYE-NASA-2026/
 ├── frontend/
 │   └── index.html               # Interactive Blink Comparator & Chart.js Spectral UI
 └── README.md
-Quick Start (Local Setup)
-Clone the repository:
 ```
+###Quick Start (Local Setup)
+Clone the repository:
 
-Bash
-```git clone [https://github.com/Alijewa25/SPHEREx-EYE-NASA-2026.git](https://github.com/Alijewa25/SPHEREx-EYE-NASA-2026.git)```
+```bash
+git clone [https://github.com/Alijewa25/SPHEREx-EYE-NASA-2026.git](https://github.com/Alijewa25/SPHEREx-EYE-NASA-2026.git)```
 ```cd SPHEREx-EYE-NASA-2026```
 
-Install Python dependencies:
+##Install Python dependencies:
 
 Bash```
 python3 -m venv venv
