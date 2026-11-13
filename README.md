@@ -56,7 +56,9 @@ Run the FastAPI backend:
 uvicorn backend.app.main:app --reload
 ```
 ##Launch the Frontend:
-```Open frontend/index.html in your browser (or via VS Code Live Server).```
+```
+Open frontend/index.html in your browser (or via VS Code Live Server).
+```
 
 #Team HERschel
 * Full-Stack & AI Pipeline Architecture
