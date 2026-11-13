@@ -34,27 +34,31 @@ SPHEREx-EYE-NASA-2026/
 │   └── index.html               # Interactive Blink Comparator & Chart.js Spectral UI
 └── README.md
 ```
-###Quick Start (Local Setup)
+##Quick Start (Local Setup)
 Clone the repository:
 
 ```bash
-git clone [https://github.com/Alijewa25/SPHEREx-EYE-NASA-2026.git](https://github.com/Alijewa25/SPHEREx-EYE-NASA-2026.git)```
-```cd SPHEREx-EYE-NASA-2026```
+git clone [https://github.com/Alijewa25/SPHEREx-EYE-NASA-2026.git](https://github.com/Alijewa25/SPHEREx-EYE-NASA-2026.git)
+`cd SPHEREx-EYE-NASA-2026
+```
 
 ##Install Python dependencies:
 
-Bash```
+```Bash
 python3 -m venv venv
 source venv/bin/activate
-pip install -r backend/requirements.txt```
+pip install -r backend/requirements.txt
+```
 
 Run the FastAPI backend:
-Bash
-```uvicorn backend.app.main:app --reload```
-Launch the Frontend:
+
+```Bash
+uvicorn backend.app.main:app --reload
+```
+##Launch the Frontend:
 ```Open frontend/index.html in your browser (or via VS Code Live Server).```
 
-Team HERschel
+##Team HERschel
 * Full-Stack & AI Pipeline Architecture
 * Data Science & Astrophysical Modeling
 * UX/UI Design & Interactive Visualization
