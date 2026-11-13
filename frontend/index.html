@@ -1,0 +1,295 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>SPHEREx-EYE | AI Deep-Sky Planet & Anomaly Hunter</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+    body { background-color: #060913; color: #e2e8f0; font-family: 'Inter', system-ui, sans-serif; }
+    .glass { background: rgba(15, 23, 42, 0.75); backdrop-filter: blur(12px); border: 1px solid rgba(56, 189, 248, 0.2); }
+    .blink-container { position: relative; width: 100%; max-width: 520px; aspect-ratio: 1/1; overflow: hidden; border-radius: 12px; border: 1px solid #1e293b; }
+    .blink-container img { position: absolute; top: 0; left: 0; width: 100%; height: 100%; object-fit: cover; user-select: none; }
+    .target-ring { position: absolute; width: 28px; height: 28px; border: 2px solid #38bdf8; border-radius: 50%; transform: translate(-50%, -50%); pointer-events: none; box-shadow: 0 0 12px #38bdf8; transition: all 0.3s ease; }
+    .target-ring.planetx { border-color: #f43f5e; box-shadow: 0 0 16px #f43f5e; }
+  </style>
+</head>
+<body class="min-h-screen flex flex-col">
+
+  <!-- Top Navbar -->
+  <header class="border-b border-slate-800 px-6 py-4 flex flex-wrap items-center justify-between gap-4 bg-slate-950/80">
+    <div class="flex items-center gap-3">
+      <div class="w-9 h-9 rounded-lg bg-gradient-to-br from-sky-500 to-indigo-600 flex items-center justify-center font-bold text-white shadow-lg shadow-sky-500/20">S</div>
+      <div>
+        <h1 class="text-lg font-bold tracking-wide text-white">SPHEREx-EYE <span class="text-xs font-normal text-sky-400 ml-1">v1.0 • TEAM HERschel</span></h1>
+        <p class="text-xs text-slate-400">102-Band Infrared Multi-Epoch Anomaly & Planet X Detection System</p>
+      </div>
+    </div>
+
+    <div class="flex items-center gap-3">
+      <select id="sectorSelect" class="bg-slate-900 border border-slate-700 text-xs rounded-lg px-3 py-2 text-slate-200 focus:outline-none focus:border-sky-500">
+        <option value="42">Sector Alpha-09 (KBO Outer Rim)</option>
+        <option value="108">Sector Vela-14 (Ecliptic Plane)</option>
+        <option value="256">Sector Orion-03 (Deep IR Survey)</option>
+      </select>
+      <button onclick="runDemoScan()" id="scanBtn" class="bg-sky-500 hover:bg-sky-400 text-slate-950 font-semibold text-xs px-4 py-2 rounded-lg transition shadow-lg shadow-sky-500/25 cursor-pointer">
+        Run 102-Band AI Scan
+      </button>
+    </div>
+  </header>
+
+  <!-- Main Workspace -->
+  <main class="flex-1 max-w-7xl w-full mx-auto p-6 grid grid-cols-1 lg:grid-cols-12 gap-6">
+
+    <!-- Left: Blink Comparator & Sky Viewer (6 cols) -->
+    <section class="lg:col-span-6 glass rounded-2xl p-5 flex flex-col items-center">
+      <div class="w-full flex items-center justify-between mb-3">
+        <div>
+          <h2 class="text-sm font-semibold text-white">Multi-Epoch Blink Comparator</h2>
+          <p class="text-xs text-slate-400">Compare Epoch 1 (T₀) vs Epoch 2 (T₀ + 6 Months)</p>
+        </div>
+        <div class="flex gap-2">
+          <button onclick="toggleAutoBlink()" id="blinkBtn" class="text-xs px-3 py-1.5 rounded-md bg-slate-800 hover:bg-slate-700 text-sky-400 border border-slate-700 cursor-pointer">
+            Auto-Blink: OFF
+          </button>
+          <button onclick="toggleDiffMap()" id="diffBtn" class="text-xs px-3 py-1.5 rounded-md bg-slate-800 hover:bg-slate-700 text-emerald-400 border border-slate-700 cursor-pointer">
+            Residual Diff
+          </button>
+        </div>
+      </div>
+
+      <div class="blink-container" id="skyViewport">
+        <img id="imgEpoch1" alt="Epoch 1" />
+        <img id="imgEpoch2" alt="Epoch 2" style="clip-path: inset(0 0 0 50%);" />
+        <img id="imgDiff" alt="Difference Map" class="hidden" />
+        <div id="markersLayer"></div>
+        <div id="splitLine" class="absolute top-0 bottom-0 w-0.5 bg-sky-400/80 pointer-events-none" style="left: 50%;"></div>
+      </div>
+
+      <!-- Slider Control -->
+      <div class="w-full max-w-[520px] mt-4">
+        <div class="flex justify-between text-[11px] text-slate-400 mb-1">
+          <span>Epoch 1 (Baseline)</span>
+          <span id="sliderPct">Split: 50%</span>
+          <span>Epoch 2 (+6 Months)</span>
+        </div>
+        <input type="range" id="wipeSlider" min="0" max="100" value="50" oninput="updateWipe(this.value)" class="w-full accent-sky-400 cursor-pointer" />
+      </div>
+
+      <!-- Custom FITS / Image Upload -->
+      <div class="w-full max-w-[520px] mt-5 pt-4 border-t border-slate-800 flex flex-wrap items-center justify-between gap-2">
+        <div class="text-xs text-slate-400">Upload NASA <span class="text-sky-400 font-mono">.FITS</span> / PNG pair:</div>
+        <div class="flex items-center gap-2">
+          <input type="file" id="fileE1" accept=".fits,.fit,.png,.jpg" class="text-[11px] text-slate-400 w-28" />
+          <input type="file" id="fileE2" accept=".fits,.fit,.png,.jpg" class="text-[11px] text-slate-400 w-28" />
+          <button onclick="uploadRealFiles()" class="text-xs bg-indigo-600 hover:bg-indigo-500 text-white px-3 py-1.5 rounded-md cursor-pointer">Analyze</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- Right: Detected Candidates & 102-Band Spectrum (6 cols) -->
+    <section class="lg:col-span-6 flex flex-col gap-6">
+
+      <!-- KPI Strip -->
+      <div class="grid grid-cols-3 gap-3">
+        <div class="glass rounded-xl p-3.5">
+          <div class="text-[11px] text-slate-400">Spectral Channels</div>
+          <div class="text-xl font-bold text-white mt-0.5">102 <span class="text-xs font-normal text-sky-400">Bands</span></div>
+        </div>
+        <div class="glass rounded-xl p-3.5">
+          <div class="text-[11px] text-slate-400">Anomalies Detected</div>
+          <div id="kpiCount" class="text-xl font-bold text-emerald-400 mt-0.5">--</div>
+        </div>
+        <div class="glass rounded-xl p-3.5">
+          <div class="text-[11px] text-slate-400">Pipeline Latency</div>
+          <div id="kpiLatency" class="text-xl font-bold text-amber-400 mt-0.5">-- ms</div>
+        </div>
+      </div>
+
+      <!-- Candidate List -->
+      <div class="glass rounded-2xl p-5">
+        <h3 class="text-sm font-semibold text-white mb-3">AI-Ranked Moving & Transient Candidates</h3>
+        <div id="candidatesList" class="space-y-2.5 max-h-56 overflow-y-auto pr-1">
+          <p class="text-xs text-slate-400">Initializing scan...</p>
+        </div>
+      </div>
+
+      <!-- 102-Band Spectrum Chart -->
+      <div class="glass rounded-2xl p-5 flex-1 flex flex-col">
+        <div class="flex items-center justify-between mb-2">
+          <div>
+            <h3 class="text-sm font-semibold text-white">102-Band Infrared Spectral Signature (0.75 – 5.0 µm)</h3>
+            <p id="selectedObjMeta" class="text-xs text-slate-400">Select a candidate above to inspect thermal & molecular profile</p>
+          </div>
+        </div>
+        <div class="relative flex-1 min-h-[210px]">
+          <canvas id="spectrumChart"></canvas>
+        </div>
+      </div>
+
+    </section>
+  </main>
+
+  <script>
+    const API_BASE = "http://127.0.0.1:8000";
+    let currentData = null;
+    let spectrumChart = null;
+    let blinkInterval = null;
+    let showDiff = false;
+
+    function updateWipe(val) {
+      document.getElementById("imgEpoch2").style.clipPath = `inset(0 0 0 ${val}%)`;
+      document.getElementById("splitLine").style.left = `${val}%`;
+      document.getElementById("sliderPct").innerText = `Split: ${val}%`;
+    }
+
+    function toggleAutoBlink() {
+      const btn = document.getElementById("blinkBtn");
+      if (blinkInterval) {
+        clearInterval(blinkInterval);
+        blinkInterval = null;
+        btn.innerText = "Auto-Blink: OFF";
+        updateWipe(50);
+      } else {
+        let state = false;
+        btn.innerText = "Auto-Blink: ON";
+        blinkInterval = setInterval(() => {
+          state = !state;
+          updateWipe(state ? 0 : 100);
+        }, 650);
+      }
+    }
+
+    function toggleDiffMap() {
+      showDiff = !showDiff;
+      document.getElementById("imgDiff").classList.toggle("hidden", !showDiff);
+      document.getElementById("diffBtn").innerText = showDiff ? "Sky View" : "Residual Diff";
+    }
+
+    function renderMarkers(candidates, activeId) {
+      const layer = document.getElementById("markersLayer");
+      layer.innerHTML = "";
+      candidates.forEach(c => {
+        const isPlanetX = c.classification === "Planet X Candidate";
+        const isActive = c.id === activeId;
+        const ring = document.createElement("div");
+        ring.className = `target-ring ${isPlanetX ? "planetx" : ""}`;
+        ring.style.left = `${(c.epoch2_pos.x / 600) * 100}%`;
+        ring.style.top = `${(c.epoch2_pos.y / 600) * 100}%`;
+        ring.style.transform = `translate(-50%, -50%) scale(${isActive ? 1.35 : 0.95})`;
+        layer.appendChild(ring);
+      });
+    }
+
+    function selectCandidate(index) {
+      if (!currentData || !currentData.candidates[index]) return;
+      const c = currentData.candidates[index];
+      renderMarkers(currentData.candidates, c.id);
+
+      document.getElementById("selectedObjMeta").innerHTML =
+        `<span class="text-sky-400 font-semibold">${c.id}</span> • ${c.classification} • Est. Temp: <span class="text-amber-300">${c.estimated_temp_k} K</span> • Distance: <span class="text-emerald-300">${c.estimated_distance_au} AU</span>`;
+
+      const ctx = document.getElementById("spectrumChart").getContext("2d");
+      if (spectrumChart) spectrumChart.destroy();
+
+      const lineColor = c.classification === "Planet X Candidate" ? "#f43f5e" : "#38bdf8";
+      spectrumChart = new Chart(ctx, {
+        type: "line",
+        data: {
+          labels: currentData.wavelengths,
+          datasets: [{
+            label: `${c.id} Normalized IR Flux`,
+            data: c.spectrum_102,
+            borderColor: lineColor,
+            backgroundColor: lineColor + "22",
+            borderWidth: 2,
+            pointRadius: 0,
+            fill: true,
+            tension: 0.3
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: { legend: { display: false } },
+          scales: {
+            x: {
+              title: { display: true, text: "Wavelength (µm) — 102 SPHEREx Channels", color: "#94a3b8", font: { size: 11 } },
+              ticks: { color: "#64748b", maxTicksLimit: 10 },
+              grid: { color: "rgba(148, 163, 184, 0.08)" }
+            },
+            y: {
+              title: { display: true, text: "Relative Flux", color: "#94a3b8", font: { size: 11 } },
+              ticks: { color: "#64748b" },
+              grid: { color: "rgba(148, 163, 184, 0.08)" },
+              min: 0, max: 1.05
+            }
+          }
+        }
+      });
+    }
+
+    function applyScanResult(data, latencyMs) {
+      currentData = data;
+      document.getElementById("imgEpoch1").src = data.images.epoch1;
+      document.getElementById("imgEpoch2").src = data.images.epoch2;
+      document.getElementById("imgDiff").src = data.images.difference_map;
+      document.getElementById("kpiCount").innerText = data.anomalies_found;
+      document.getElementById("kpiLatency").innerText = `${latencyMs} ms`;
+
+      const list = document.getElementById("candidatesList");
+      list.innerHTML = "";
+      data.candidates.forEach((c, idx) => {
+        const isPlanetX = c.classification === "Planet X Candidate";
+        const badgeColor = isPlanetX ? "bg-rose-500/20 text-rose-300 border-rose-500/40" : "bg-sky-500/20 text-sky-300 border-sky-500/40";
+        const card = document.createElement("div");
+        card.className = "p-3 rounded-xl bg-slate-900/90 border border-slate-800 hover:border-sky-500/50 transition cursor-pointer flex items-center justify-between";
+        card.onclick = () => selectCandidate(idx);
+        card.innerHTML = `
+          <div>
+            <div class="flex items-center gap-2">
+              <span class="font-mono text-xs font-bold text-white">${c.id}</span>
+              <span class="text-[11px] px-2 py-0.5 rounded-full border ${badgeColor}">${c.classification}</span>
+            </div>
+            <div class="text-[11px] text-slate-400 mt-1">
+              Shift: <span class="text-slate-200">${c.proper_motion_arcsec}"</span> • Flux Δ: <span class="text-slate-200">${c.flux_variation_pct}%</span> • Pos: (${c.epoch2_pos.x}, ${c.epoch2_pos.y})
+            </div>
+          </div>
+          <div class="text-right">
+            <div class="text-sm font-bold ${isPlanetX ? 'text-rose-400' : 'text-sky-400'}">${c.confidence}%</div>
+            <div class="text-[10px] text-slate-500">AI Match</div>
+          </div>
+        `;
+        list.appendChild(card);
+      });
+
+      if (data.candidates.length > 0) selectCandidate(0);
+    }
+
+    async function runDemoScan() {
+      const seed = document.getElementById("sectorSelect").value;
+      const t0 = performance.now();
+      const res = await fetch(`${API_BASE}/api/scan/demo?seed=${seed}`);
+      const data = await res.json();
+      const latency = Math.round(performance.now() - t0);
+      applyScanResult(data, latency);
+    }
+
+    async function uploadRealFiles() {
+      const f1 = document.getElementById("fileE1").files[0];
+      const f2 = document.getElementById("fileE2").files[0];
+      if (!f1 || !f2) { alert("Please select both Epoch 1 and Epoch 2 files."); return; }
+      const fd = new FormData();
+      fd.append("epoch1_file", f1);
+      fd.append("epoch2_file", f2);
+      const t0 = performance.now();
+      const res = await fetch(`${API_BASE}/api/scan/upload`, { method: "POST", body: fd });
+      const data = await res.json();
+      applyScanResult(data, Math.round(performance.now() - t0));
+    }
+
+    window.onload = runDemoScan;
+  </script>
+</body>
+</html>
