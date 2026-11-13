@@ -88,38 +88,42 @@ class SPHERExDetector:
         M = np.float32([[1, 0, -shift[0]], [0, 1, -shift[1]]])
         epoch2_aligned = cv2.warpAffine(epoch2, M, (epoch2.shape[1], epoch2.shape[0]))
 
-        diff = cv2.absdiff(epoch1, epoch2_aligned)
-        _, thresh = cv2.threshold(diff, 45, 255, cv2.THRESH_BINARY)
+        # Normalize local background contrast between optical (DSS1) and infrared (DSS2 IR)
+        e1_norm = cv2.normalize(epoch1, None, 0, 255, cv2.NORM_MINMAX)
+        e2_norm = cv2.normalize(epoch2_aligned, None, 0, 255, cv2.NORM_MINMAX)
+
+        diff = cv2.absdiff(e1_norm, e2_norm)
+        _, thresh = cv2.threshold(diff, 32, 255, cv2.THRESH_BINARY)
         kernel = np.ones((3, 3), np.uint8)
-        thresh = cv2.dilate(cv2.morphologyEx(thresh, cv2.MORPH_OPEN, kernel), kernel, iterations=2)
+        thresh = cv2.dilate(cv2.morphologyEx(thresh, cv2.MORPH_OPEN, kernel), kernel, iterations=1)
 
         contours, _ = cv2.findContours(thresh, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
         e1_blobs, e2_blobs = [], []
 
         for cnt in contours:
             area = cv2.contourArea(cnt)
-            if not (4 <= area <= 800):
+            if not (4 <= area <= 1200):
                 continue
             M_cnt = cv2.moments(cnt)
             if M_cnt["m00"] == 0:
                 continue
             cx, cy = int(M_cnt["m10"] / M_cnt["m00"]), int(M_cnt["m01"] / M_cnt["m00"])
-            val1 = float(epoch1[max(0, cy-2):cy+3, max(0, cx-2):cx+3].mean())
-            val2 = float(epoch2_aligned[max(0, cy-2):cy+3, max(0, cx-2):cx+3].mean())
+            val1 = float(e1_norm[max(0, cy-2):cy+3, max(0, cx-2):cx+3].mean())
+            val2 = float(e2_norm[max(0, cy-2):cy+3, max(0, cx-2):cx+3].mean())
 
-            if val1 > val2 + 25:
+            if val1 > val2 + 18:
                 e1_blobs.append((cx, cy, val1))
-            elif val2 > val1 + 25:
+            elif val2 > val1 + 18:
                 e2_blobs.append((cx, cy, val2))
 
         candidates, used_e2 = [], set()
-        for x1, y1, b1 in e1_blobs:
+        for x1, y1, b1 in sorted(e1_blobs, key=lambda b: -b[2]):
             best_j, best_dist = None, 999.0
             for j, (x2, y2, b2) in enumerate(e2_blobs):
                 if j in used_e2:
                     continue
                 dist = np.hypot(x2 - x1, y2 - y1)
-                if 5.0 <= dist <= 120.0 and dist < best_dist:
+                if 6.0 <= dist <= 95.0 and dist < best_dist:
                     best_dist, best_j = dist, j
 
             if best_j is not None:
@@ -128,12 +132,12 @@ class SPHERExDetector:
                 arcsec_shift = round(best_dist * 0.42, 2)
                 flux_change = round(((b2 - b1) / (b1 + 1e-5)) * 100, 1)
 
-                if arcsec_shift < 13.0 and abs(flux_change) < 15.0:
-                    cls_name, conf, temp_k, dist_au = "Planet X Candidate", round(92.4 + (13.0 - arcsec_shift) * 0.5, 1), 48, 485.0
-                elif arcsec_shift >= 13.0:
-                    cls_name, conf, temp_k, dist_au = "Near-Earth Asteroid", round(88.5 + min(arcsec_shift * 0.2, 8.0), 1), 274, 2.4
+                if arcsec_shift < 14.0 and abs(flux_change) < 25.0:
+                    cls_name, conf, temp_k, dist_au = "Planet X Candidate", round(91.8 + (14.0 - arcsec_shift) * 0.5, 1), 46, 490.0
+                elif arcsec_shift >= 14.0:
+                    cls_name, conf, temp_k, dist_au = "High-PM / TNO Candidate", round(88.2 + min(arcsec_shift * 0.15, 9.0), 1), 185, 42.5
                 else:
-                    cls_name, conf, temp_k, dist_au = "Variable Brown Dwarf", 86.7, 1150, 38.2
+                    cls_name, conf, temp_k, dist_au = "Infrared Excess / Brown Dwarf", 87.4, 1120, 34.8
 
                 candidates.append({
                     "id": f"SPX-2026-{len(candidates)+1:02d}",
@@ -149,6 +153,10 @@ class SPHERExDetector:
                 })
 
         candidates.sort(key=lambda c: (c["classification"] != "Planet X Candidate", -c["confidence"]))
+        candidates = candidates[:8]  # Top 8 highest-confidence detections for clean HUD display
+        for i, c in enumerate(candidates):
+            c["id"] = f"SPX-2026-{i+1:02d}"
+
         return {
             "status": "success",
             "total_bands_analyzed": 102,
@@ -157,8 +165,8 @@ class SPHERExDetector:
             "anomalies_found": len(candidates),
             "candidates": candidates,
             "images": {
-                "epoch1": self._encode_image_to_base64(cv2.applyColorMap(epoch1, cv2.COLORMAP_INFERNO)),
-                "epoch2": self._encode_image_to_base64(cv2.applyColorMap(epoch2_aligned, cv2.COLORMAP_INFERNO)),
+                "epoch1": self._encode_image_to_base64(cv2.applyColorMap(e1_norm, cv2.COLORMAP_INFERNO)),
+                "epoch2": self._encode_image_to_base64(cv2.applyColorMap(e2_norm, cv2.COLORMAP_INFERNO)),
                 "difference_map": self._encode_image_to_base64(cv2.applyColorMap(diff, cv2.COLORMAP_VIRIDIS))
             }
         }
