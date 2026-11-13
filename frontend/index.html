@@ -27,17 +27,38 @@
       </div>
     </div>
 
-    <div class="flex items-center gap-3">
-      <select id="sectorSelect" class="bg-slate-900 border border-slate-700 text-xs rounded-lg px-3 py-2 text-slate-200 focus:outline-none focus:border-sky-500">
-        <option value="42">Sector Alpha-09 (KBO Outer Rim)</option>
-        <option value="108">Sector Vela-14 (Ecliptic Plane)</option>
-        <option value="256">Sector Orion-03 (Deep IR Survey)</option>
+    <div class="flex flex-wrap items-center gap-2.5">
+      <select id="nasaTargetSelect" class="bg-slate-900 border border-emerald-500/40 text-xs rounded-lg px-3 py-2 text-emerald-300 focus:outline-none">
+        <option value="sedna_region">NASA Archive: 90377 Sedna Sector</option>
+        <option value="pleiades_ir">NASA Archive: Pleiades IR Field</option>
+        <option value="orion_nebula">NASA Archive: Orion Molecular Cloud</option>
       </select>
-      <button onclick="runDemoScan()" id="scanBtn" class="bg-sky-500 hover:bg-sky-400 text-slate-950 font-semibold text-xs px-4 py-2 rounded-lg transition shadow-lg shadow-sky-500/25 cursor-pointer">
-        Run 102-Band AI Scan
+      <button onclick="runNasaLiveScan()" id="nasaBtn" class="bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-semibold text-xs px-4 py-2 rounded-lg transition shadow-lg shadow-emerald-500/20 cursor-pointer">
+        Fetch Live NASA FITS
+      </button>
+
+      <div class="h-5 w-px bg-slate-800 mx-1"></div>
+
+      <select id="sectorSelect" class="bg-slate-900 border border-slate-700 text-xs rounded-lg px-3 py-2 text-slate-200 focus:outline-none">
+        <option value="42">SPHEREx Sim: Alpha-09 (KBO)</option>
+        <option value="108">SPHEREx Sim: Vela-14</option>
+        <option value="256">SPHEREx Sim: Orion-03</option>
+      </select>
+      <button onclick="runDemoScan()" id="scanBtn" class="bg-sky-500 hover:bg-sky-400 text-slate-950 font-semibold text-xs px-4 py-2 rounded-lg transition cursor-pointer">
+        Run 102-Band Sim
       </button>
     </div>
   </header>
+
+  <!-- Data Source Banner -->
+  <div class="bg-slate-900/70 border-b border-slate-800/80 px-6 py-2 flex flex-wrap items-center justify-between text-xs">
+    <div class="flex items-center gap-2">
+      <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+      <span class="text-slate-400">Active Telemetry Source:</span>
+      <span id="dataSourceLabel" class="font-semibold text-sky-300">Initializing...</span>
+    </div>
+    <div id="fitsMetaBanner" class="font-mono text-[11px] text-slate-400"></div>
+  </div>
 
   <!-- Main Workspace -->
   <main class="flex-1 max-w-7xl w-full mx-auto p-6 grid grid-cols-1 lg:grid-cols-12 gap-6">
@@ -70,16 +91,16 @@
       <!-- Slider Control -->
       <div class="w-full max-w-[520px] mt-4">
         <div class="flex justify-between text-[11px] text-slate-400 mb-1">
-          <span>Epoch 1 (Baseline)</span>
+          <span>Epoch 1 (Baseline / 3.4µm)</span>
           <span id="sliderPct">Split: 50%</span>
-          <span>Epoch 2 (+6 Months)</span>
+          <span>Epoch 2 (+6m / 4.6µm)</span>
         </div>
         <input type="range" id="wipeSlider" min="0" max="100" value="50" oninput="updateWipe(this.value)" class="w-full accent-sky-400 cursor-pointer" />
       </div>
 
       <!-- Custom FITS / Image Upload -->
       <div class="w-full max-w-[520px] mt-5 pt-4 border-t border-slate-800 flex flex-wrap items-center justify-between gap-2">
-        <div class="text-xs text-slate-400">Upload NASA <span class="text-sky-400 font-mono">.FITS</span> / PNG pair:</div>
+        <div class="text-xs text-slate-400">Upload local NASA <span class="text-sky-400 font-mono">.FITS</span> / PNG pair:</div>
         <div class="flex items-center gap-2">
           <input type="file" id="fileE1" accept=".fits,.fit,.png,.jpg" class="text-[11px] text-slate-400 w-28" />
           <input type="file" id="fileE2" accept=".fits,.fit,.png,.jpg" class="text-[11px] text-slate-400 w-28" />
@@ -237,9 +258,23 @@
       document.getElementById("imgDiff").src = data.images.difference_map;
       document.getElementById("kpiCount").innerText = data.anomalies_found;
       document.getElementById("kpiLatency").innerText = `${latencyMs} ms`;
+      document.getElementById("dataSourceLabel").innerText = data.data_source || "SPHEREx Telemetry";
+
+      const metaBanner = document.getElementById("fitsMetaBanner");
+      if (data.fits_metadata) {
+        metaBanner.innerText = `FITS: ${data.fits_metadata.INSTRUME} | RA: ${data.fits_metadata.CRVAL1}° | DEC: ${data.fits_metadata.CRVAL2}°`;
+      } else {
+        metaBanner.innerText = "Synthetic Benchmark Mode (102 Channels)";
+      }
 
       const list = document.getElementById("candidatesList");
       list.innerHTML = "";
+      if (data.candidates.length === 0) {
+        list.innerHTML = `<p class="text-xs text-slate-400">No high-shift moving anomalies isolated in this frame pair.</p>`;
+        renderMarkers([], null);
+        return;
+      }
+
       data.candidates.forEach((c, idx) => {
         const isPlanetX = c.classification === "Planet X Candidate";
         const badgeColor = isPlanetX ? "bg-rose-500/20 text-rose-300 border-rose-500/40" : "bg-sky-500/20 text-sky-300 border-sky-500/40";
@@ -264,7 +299,26 @@
         list.appendChild(card);
       });
 
-      if (data.candidates.length > 0) selectCandidate(0);
+      selectCandidate(0);
+    }
+
+    async function runNasaLiveScan() {
+      const btn = document.getElementById("nasaBtn");
+      const target = document.getElementById("nasaTargetSelect").value;
+      btn.innerText = "Fetching NASA FITS...";
+      btn.disabled = true;
+      try {
+        const t0 = performance.now();
+        const res = await fetch(`${API_BASE}/api/scan/nasa-live?target=${target}`);
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.detail || "NASA server timeout");
+        applyScanResult(data, Math.round(performance.now() - t0));
+      } catch (err) {
+        alert("NASA Live Fetch Error: " + err.message);
+      } finally {
+        btn.innerText = "Fetch Live NASA FITS";
+        btn.disabled = false;
+      }
     }
 
     async function runDemoScan() {
@@ -272,8 +326,7 @@
       const t0 = performance.now();
       const res = await fetch(`${API_BASE}/api/scan/demo?seed=${seed}`);
       const data = await res.json();
-      const latency = Math.round(performance.now() - t0);
-      applyScanResult(data, latency);
+      applyScanResult(data, Math.round(performance.now() - t0));
     }
 
     async function uploadRealFiles() {
