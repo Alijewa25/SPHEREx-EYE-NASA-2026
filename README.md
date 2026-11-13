@@ -39,7 +39,7 @@ Clone the repository:
 
 ```bash
 git clone [https://github.com/Alijewa25/SPHEREx-EYE-NASA-2026.git](https://github.com/Alijewa25/SPHEREx-EYE-NASA-2026.git)
-`cd SPHEREx-EYE-NASA-2026
+cd SPHEREx-EYE-NASA-2026
 ```
 
 ##Install Python dependencies:
