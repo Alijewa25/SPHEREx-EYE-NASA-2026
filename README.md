@@ -58,7 +58,7 @@ uvicorn backend.app.main:app --reload
 ##Launch the Frontend:
 ```Open frontend/index.html in your browser (or via VS Code Live Server).```
 
-##Team HERschel
+#Team HERschel
 * Full-Stack & AI Pipeline Architecture
 * Data Science & Astrophysical Modeling
 * UX/UI Design & Interactive Visualization
