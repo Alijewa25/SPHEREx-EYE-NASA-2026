@@ -225,3 +225,4 @@ __pycache__/
 backend/data/nasa_fits/*.fits
 .DS_Storecache/
 cache/
+candidates.csv
