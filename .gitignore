@@ -223,4 +223,5 @@ __pycache__/
 *.pyc
 # Cached NASA FITS datasets
 backend/data/nasa_fits/*.fits
-.DS_Store
+.DS_Storecache/
+cache/

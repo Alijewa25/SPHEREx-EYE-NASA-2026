@@ -3,193 +3,287 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>SPHEREx-EYE | NASA JPL Multi-Spectral Anomaly Pipeline</title>
+  <title>SPHEREx-EYE | Multi-Band Blink & Anomaly Pipeline</title>
+  <link rel="icon" type="image/png" href="/logo.png" />
   <script src="https://cdn.tailwindcss.com"></script>
-  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet" />
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1"></script>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet" />
   <style>
     body {
       background-color: #020617;
-      color: #e2e8f0;
+      color: #f1f5f9;
       font-family: 'Space Grotesk', sans-serif;
       background-image:
-        radial-gradient(circle at 15% 20%, rgba(14, 165, 233, 0.07) 0%, transparent 45%),
-        radial-gradient(circle at 85% 80%, rgba(249, 115, 22, 0.06) 0%, transparent 45%),
-        linear-gradient(rgba(30, 41, 59, 0.18) 1px, transparent 1px),
-        linear-gradient(90deg, rgba(30, 41, 59, 0.18) 1px, transparent 1px);
+        radial-gradient(circle at 15% 20%, rgba(14, 165, 233, 0.06) 0%, transparent 45%),
+        radial-gradient(circle at 85% 80%, rgba(249, 115, 22, 0.05) 0%, transparent 45%),
+        linear-gradient(rgba(30, 41, 59, 0.14) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(30, 41, 59, 0.14) 1px, transparent 1px);
       background-size: 100% 100%, 100% 100%, 40px 40px, 40px 40px;
     }
     .mono { font-family: 'JetBrains Mono', monospace; }
     .hud-panel {
-      background: rgba(9, 14, 28, 0.86);
-      backdrop-filter: blur(12px);
+      background: rgba(9, 14, 28, 0.92);
       border: 1px solid rgba(56, 189, 248, 0.22);
-      box-shadow: 0 0 25px rgba(2, 6, 23, 0.8), inset 0 0 15px rgba(56, 189, 248, 0.03);
     }
-    .hud-corner { position: relative; }
-    .hud-corner::before {
-      content: ''; position: absolute; top: -1px; left: -1px;
-      width: 12px; height: 12px;
-      border-top: 2px solid #38bdf8; border-left: 2px solid #38bdf8;
+    .step-num {
+      display: inline-flex; align-items: center; justify-content: center;
+      width: 22px; height: 22px; border-radius: 6px; font-size: 12px; font-weight: 700;
+      background: rgba(56, 189, 248, 0.15); color: #7dd3fc; border: 1px solid rgba(56, 189, 248, 0.4);
     }
-    .hud-corner::after {
-      content: ''; position: absolute; bottom: -1px; right: -1px;
-      width: 12px; height: 12px;
-      border-bottom: 2px solid #f97316; border-right: 2px solid #f97316;
-    }
+    .label { color: #94a3b8; font-size: 12px; }
+    :focus-visible { outline: 2px solid #fbbf24; outline-offset: 2px; }
     ::-webkit-scrollbar { width: 6px; height: 6px; }
     ::-webkit-scrollbar-track { background: #020617; }
     ::-webkit-scrollbar-thumb { background: #1e293b; border-radius: 3px; }
     ::-webkit-scrollbar-thumb:hover { background: #38bdf8; }
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after { animation: none !important; transition: none !important; }
+    }
   </style>
 </head>
 <body class="min-h-screen flex flex-col">
 
-  <!-- TOP NASA JPL MISSION CONTROL HEADER -->
-  <header class="border-b border-cyan-500/25 bg-slate-950/90 backdrop-blur-md sticky top-0 z-50">
-    <div class="max-w-[1600px] mx-auto px-4 py-3 flex flex-wrap items-center justify-between gap-4">
-      <div class="flex items-center gap-3.5">
-        <div class="w-10 h-10 rounded-lg bg-gradient-to-br from-sky-500/20 to-orange-500/20 border border-cyan-400/40 flex items-center justify-center">
-          <svg class="w-6 h-6 text-cyan-400" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24">
+  <!-- HEADER -->
+  <header class="border-b border-cyan-500/20 bg-slate-950/95">
+    <div class="max-w-[1600px] mx-auto px-4 py-3 flex flex-wrap items-center justify-between gap-3">
+      <div class="flex items-center gap-3">
+        <!-- PUBLIC LOGO (/logo.png) + FALLBACK -->
+        <div class="w-10 h-10 rounded-lg bg-slate-900 border border-cyan-400/40 flex items-center justify-center overflow-hidden shrink-0">
+          <img
+            src="/logo.png"
+            alt="SPHEREx-EYE Logo"
+            class="w-full h-full object-contain"
+            onerror="this.style.display='none'; document.getElementById('fallbackLogoSvg').classList.remove('hidden');"
+          />
+          <svg id="fallbackLogoSvg" class="hidden w-6 h-6 text-cyan-400" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24" aria-hidden="true">
             <circle cx="12" cy="12" r="9" />
             <circle cx="12" cy="12" r="3" class="text-orange-400" />
             <path d="M12 1v4M12 19v4M1 12h4M19 12h4" />
           </svg>
         </div>
+
         <div>
-          <div class="flex items-center gap-2">
-            <span class="mono text-[10px] tracking-widest uppercase px-2 py-0.5 rounded bg-cyan-500/15 text-cyan-300 border border-cyan-500/30">
+          <div class="flex flex-wrap items-center gap-2">
+            <span class="mono text-[11px] px-2 py-0.5 rounded bg-cyan-500/15 text-cyan-300 border border-cyan-500/30">
               NASA SPACE APPS 2026 // TEAM HERSCHEL
             </span>
-            <span class="mono text-[10px] tracking-wider uppercase px-2 py-0.5 rounded bg-orange-500/15 text-orange-300 border border-orange-500/30">
+            <span class="mono text-[11px] px-2 py-0.5 rounded bg-orange-500/15 text-orange-300 border border-orange-500/30">
               0.75–5.00 µm IR SPECTROPHOTOMETRY
             </span>
+            <span class="mono text-[11px] px-2 py-0.5 rounded bg-violet-500/15 text-violet-300 border border-violet-500/30">
+              ESA GAIA DR3 // IRSA // CSA NEOSSat
+            </span>
           </div>
-          <h1 class="text-xl md:text-2xl font-bold tracking-tight text-white mt-0.5">
-            SPHEREx-EYE <span class="text-cyan-400 font-normal text-sm md:text-base ml-1">// Multi-Epoch FITS Blink & Anomaly Pipeline</span>
+          <h1 class="text-lg md:text-xl font-bold tracking-tight text-white mt-0.5">
+            SPHEREx-EYE <span class="text-cyan-300 font-normal text-sm md:text-base ml-1">— Multi-Epoch Blink &amp; Anomaly Pipeline</span>
           </h1>
         </div>
       </div>
 
-      <div class="flex items-center gap-4 mono text-xs">
+      <div class="flex items-center gap-3 mono text-xs">
+        <button id="howItWorksBtn" onclick="toggleHowItWorks()" aria-expanded="false" aria-controls="howItWorksBox"
+          class="px-3 py-1.5 rounded-lg bg-slate-900 hover:bg-slate-800 border border-slate-700 text-slate-200 transition">
+          ? How it works
+        </button>
         <div class="hidden sm:flex flex-col items-end">
-          <span class="text-slate-400 text-[10px]">MISSION UTC CLOCK</span>
+          <span class="text-slate-400 text-[10px]">MISSION UTC</span>
           <span id="utcClock" class="text-cyan-300 font-semibold">--:--:-- UTC</span>
         </div>
-        <div class="flex items-center gap-2 px-3 py-1.5 rounded-md bg-emerald-950/60 border border-emerald-500/40 text-emerald-300">
-          <span class="w-2 h-2 rounded-full bg-emerald-400 animate-ping"></span>
-          <span>NASA SKYVIEW FITS // LIVE</span>
+        <div class="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-emerald-950/70 border border-emerald-500/40 text-emerald-300">
+          <span class="w-2 h-2 rounded-full bg-emerald-400"></span>
+          <span>NASA SkyView Live</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- COLLAPSIBLE HOW IT WORKS PANEL -->
+    <div id="howItWorksBox" class="hidden border-t border-slate-800 bg-slate-950/95">
+      <div class="max-w-[1600px] mx-auto px-4 py-3 grid grid-cols-1 md:grid-cols-4 gap-3 text-xs text-slate-300">
+        <div class="p-2.5 rounded-lg bg-slate-900/80 border border-slate-800">
+          <div class="font-semibold text-cyan-300 mb-1">1. Select Sky Sector &amp; Epochs</div>
+          Pick a deep-sky target and temporal baseline (1953 DSS1 vs 1996 DSS2 or 1996 DSS2 IR vs 2010+ WISE) or upload FITS plates.
+        </div>
+        <div class="p-2.5 rounded-lg bg-slate-900/80 border border-slate-800">
+          <div class="font-semibold text-cyan-300 mb-1">2. Blink &amp; Residual Compare</div>
+          Use Blink Pulse, Play/Pause, Step, or Residual Diff to spot objects that shift position across multi-decade sky surveys.
+        </div>
+        <div class="p-2.5 rounded-lg bg-slate-900/80 border border-slate-800">
+          <div class="font-semibold text-orange-300 mb-1">3. Inspect Motion Detections</div>
+          Review detected anomalies, angular displacement (arcseconds), effective temperature (K), and estimated distance (AU).
+        </div>
+        <div class="p-2.5 rounded-lg bg-slate-900/80 border border-slate-800">
+          <div class="font-semibold text-orange-300 mb-1">4. Analyze 102-Band SED</div>
+          Inspect the infrared spectrum (0.75–5.0 µm) for H₂O (2.70 µm), Silicate (2.95 µm), and CH₄ (3.32 µm) absorption dips.
+        </div>
+        <div class="p-2.5 rounded-lg bg-slate-900/80 border border-slate-800">
+          <div class="font-semibold text-violet-300 mb-1">5. Verify Gaia DR3 &amp; FITS Provenance</div>
+          Cross-match the target with ESA Gaia DR3 and compare NASA/IPAC IRSA or CSA NEOSSat FITS plates.
         </div>
       </div>
     </div>
   </header>
 
-  <!-- MAIN TELEMETRY WORKSPACE -->
+  <!-- INLINE ERROR BANNER -->
+  <div id="errorBanner" role="alert" class="hidden max-w-[1600px] w-full mx-auto px-4 pt-3">
+    <div class="p-3 rounded-lg bg-red-950/90 border border-red-500/50 text-red-200 text-xs flex items-center justify-between gap-3">
+      <div class="flex items-center gap-2">
+        <span class="mono font-bold text-red-300">[PIPELINE ERROR]</span>
+        <span id="errorMessage">Unable to fetch FITS telemetry.</span>
+      </div>
+      <button onclick="dismissError()" class="mono text-[11px] px-2.5 py-1 rounded bg-red-900/60 hover:bg-red-800 text-red-100">
+        Dismiss
+      </button>
+    </div>
+  </div>
+
+  <!-- MAIN 3-COLUMN WORKSPACE -->
   <main class="flex-1 max-w-[1600px] w-full mx-auto p-4 grid grid-cols-1 lg:grid-cols-12 gap-4">
 
-    <!-- LEFT SIDEBAR -->
+    <!-- LEFT COLUMN: STEP 1 & METADATA -->
     <aside class="lg:col-span-3 flex flex-col gap-4">
-      <section class="hud-panel hud-corner rounded-xl p-4">
+      <section class="hud-panel rounded-xl p-4">
         <div class="flex items-center justify-between mb-3">
-          <h2 class="mono text-xs font-bold uppercase tracking-wider text-cyan-400">01 // NASA Sky Survey Target</h2>
-          <span class="mono text-[10px] text-slate-400">GSFC-ARCHIVE</span>
+          <div class="flex items-center gap-2">
+            <span class="step-num mono">1</span>
+            <h2 class="text-sm font-bold text-white">Target &amp; Epoch Setup</h2>
+          </div>
+          <span class="mono text-[11px] text-slate-400">GSFC-ARCHIVE</span>
         </div>
 
-        <label class="block mono text-[11px] text-slate-400 mb-1.5">SELECT DEEP-SKY SECTOR</label>
-        <select id="targetSelect" class="w-full bg-slate-900 border border-cyan-500/30 rounded-lg px-3 py-2.5 text-xs mono text-white focus:outline-none focus:border-cyan-400 mb-3">
+        <label for="targetSelect" class="block label mb-1">Deep-Sky Sector</label>
+        <select id="targetSelect" onchange="loadNasaTarget()" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-xs mono text-white focus:border-cyan-400 mb-3">
           <option value="barnard_star">Barnard's Star (RA 269.45°, DEC +4.69°)</option>
           <option value="pleiades_ir">M45 Pleiades Nebula (RA 56.75°, DEC +24.11°)</option>
-          <option value="sedna_region">90377 Sedna Sector (RA 55.12°, DEC +7.85°)</option>
+          <option value="sedna_region">90377 Sedna Sector (RA 54.12°, DEC +7.85°)</option>
         </select>
 
-        <button onclick="loadNasaTarget()" class="w-full py-2.5 px-4 rounded-lg bg-gradient-to-r from-cyan-600 to-sky-600 hover:from-cyan-500 hover:to-sky-500 text-white font-semibold text-xs mono tracking-wider uppercase transition shadow-lg shadow-cyan-950/50">
-          EXECUTE FITS BLINK SCAN
+        <label for="epochModeSelect" class="block label mb-1">Temporal Epoch Baseline</label>
+        <select id="epochModeSelect" onchange="loadNasaTarget()" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-xs mono text-white focus:border-cyan-400 mb-3">
+          <option value="classic_1953_1996">1953 DSS1 vs 1996 DSS2 (43-Yr Baseline)</option>
+          <option value="modern_1996_wise">1996 DSS2 IR vs 2010+ WISE (14-Yr IR)</option>
+        </select>
+
+        <button id="scanBtn" onclick="loadNasaTarget()" class="w-full py-2.5 px-4 rounded-lg bg-gradient-to-r from-cyan-400 via-sky-400 to-cyan-500 hover:from-cyan-300 hover:via-sky-300 hover:to-cyan-400 text-slate-950 font-bold text-xs tracking-[0.08em] uppercase shadow-[0_0_18px_rgba(34,211,238,0.28)] transition">
+          Run FITS Blink Scan
         </button>
 
-        <p class="text-[11px] text-slate-400 mt-3 leading-relaxed border-t border-slate-800 pt-2.5">
+        <p id="modeDescText" class="text-xs text-slate-300 mt-3 leading-relaxed border-t border-slate-800 pt-2.5">
           Comparing real multi-epoch NASA SkyView plates: 1953 Palomar Optical (DSS1 Red) vs 1996 Infrared Survey (DSS2 IR).
         </p>
       </section>
 
       <!-- FITS HEADER TELEMETRY -->
-      <section class="hud-panel rounded-xl p-4 flex-1">
-        <div class="flex items-center justify-between mb-2.5">
-          <h2 class="mono text-xs font-bold uppercase tracking-wider text-orange-400">02 // FITS Header Telemetry</h2>
-          <span class="mono text-[10px] px-1.5 py-0.5 rounded bg-slate-800 text-cyan-300">WCS-J2000</span>
-        </div>
+      <section class="hud-panel rounded-xl p-4 flex-1 flex flex-col justify-between">
+        <div>
+          <div class="flex items-center justify-between mb-2.5">
+            <h2 class="text-sm font-bold text-white">FITS Header Telemetry</h2>
+            <span class="mono text-[11px] px-2 py-0.5 rounded bg-slate-800 text-cyan-300">WCS-J2000</span>
+          </div>
 
-        <div class="bg-slate-950/90 border border-slate-800 rounded-lg p-3 mono text-[11px] space-y-1.5 text-emerald-400">
-          <div class="flex justify-between"><span class="text-slate-500">ARCHIVE:</span><span id="metaSource" class="text-cyan-300 text-right">NASA SkyView</span></div>
-          <div class="flex justify-between"><span class="text-slate-500">EPOCH 1:</span><span id="metaE1">DSS1 Red (1953)</span></div>
-          <div class="flex justify-between"><span class="text-slate-500">EPOCH 2:</span><span id="metaE2">DSS2 IR (1996)</span></div>
-          <div class="flex justify-between"><span class="text-slate-500">CRVAL1 (RA):</span><span id="metaRa">269.4520°</span></div>
-          <div class="flex justify-between"><span class="text-slate-500">CRVAL2 (DEC):</span><span id="metaDec">+4.6930°</span></div>
-          <div class="flex justify-between"><span class="text-slate-500">SPECTRAL BANDS:</span><span>102 (0.75–5.0 µm)</span></div>
-          <div class="flex justify-between"><span class="text-slate-500">RESOLUTION:</span><span>600 × 600 px</span></div>
+          <div class="bg-slate-950/90 border border-slate-800 rounded-lg p-3 mono text-xs space-y-1.5 text-emerald-300">
+            <div class="flex justify-between items-start gap-2"><span class="text-slate-400 shrink-0">ARCHIVE:</span><span id="metaSource" class="text-cyan-300 text-right max-w-[68%] whitespace-normal leading-tight">NASA SkyView</span></div>
+            <div class="flex justify-between gap-2"><span class="text-slate-400 shrink-0">EPOCH 1:</span><span id="metaE1" class="text-right truncate">DSS1 Red (1953)</span></div>
+            <div class="flex justify-between gap-2"><span class="text-slate-400 shrink-0">EPOCH 2:</span><span id="metaE2" class="text-right truncate">DSS2 IR (1996)</span></div>
+            <div class="flex justify-between"><span class="text-slate-400">CRVAL1 (RA):</span><span id="metaRa">269.4520°</span></div>
+            <div class="flex justify-between"><span class="text-slate-400">CRVAL2 (DEC):</span><span id="metaDec">+4.6930°</span></div>
+            <div class="flex justify-between"><span class="text-slate-400">BANDS:</span><span>102 (0.75–5.0 µm)</span></div>
+            <div class="flex justify-between"><span class="text-slate-400">DIMENSIONS:</span><span>600 × 600 px</span></div>
+          </div>
+
+          <div class="mt-3 rounded-lg border border-violet-500/30 bg-violet-950/20 p-3 mono text-xs">
+            <div class="flex items-center justify-between gap-2 mb-2">
+              <span class="font-semibold text-violet-200">Gaia DR3 Cross-Match</span>
+              <span id="gaiaStatusBadge" class="px-1.5 py-0.5 rounded border border-slate-600 bg-slate-900 text-slate-300 text-[10px]">PENDING</span>
+            </div>
+            <div class="space-y-1 text-slate-300">
+              <div class="flex justify-between gap-2"><span class="text-slate-400">SOURCE_ID:</span><span id="gaiaSourceId" class="text-right truncate">--</span></div>
+              <div class="flex justify-between gap-2"><span class="text-slate-400">PROPER MOTION:</span><span id="gaiaProperMotion">-- "/yr</span></div>
+              <div class="flex justify-between gap-2"><span class="text-slate-400">G-MAG:</span><span id="gaiaGMag">--</span></div>
+              <div class="flex justify-between gap-2"><span class="text-slate-400">PARALLAX:</span><span id="gaiaParallax">-- mas</span></div>
+            </div>
+          </div>
         </div>
 
         <!-- CUSTOM FITS UPLOADER -->
         <div class="mt-4 pt-3 border-t border-slate-800">
-          <h3 class="mono text-[11px] font-semibold uppercase text-slate-300 mb-2">Custom FITS Plate Comparator</h3>
-          <div class="space-y-2 mono text-[11px]">
+          <h3 class="text-xs font-bold uppercase tracking-wider text-slate-200 mb-2">Custom FITS Comparator</h3>
+          <p class="text-[11px] text-slate-400 mb-2">Compatible with NASA/IPAC IRSA and CSA NEOSSat <span class="text-cyan-300">.fits</span> plates.</p>
+          <div class="space-y-2 text-xs">
             <div>
-              <label class="text-slate-400 block mb-0.5">Epoch 1 (.fits / .png)</label>
-              <input type="file" id="fileE1" accept=".fits,.fit,.png,.jpg" class="w-full text-[10px] text-slate-300 file:mr-2 file:py-1 file:px-2 file:rounded file:border-0 file:bg-slate-800 file:text-cyan-300 hover:file:bg-slate-700" />
+              <label for="fileE1" class="label block mb-0.5">Epoch 1 Plate (.fits / .png)</label>
+              <input type="file" id="fileE1" accept=".fits,.fit,.png,.jpg" class="w-full text-[11px] text-slate-300 file:mr-2 file:py-1 file:px-2.5 file:rounded file:border-0 file:bg-slate-800 file:text-cyan-300 hover:file:bg-slate-700" />
             </div>
             <div>
-              <label class="text-slate-400 block mb-0.5">Epoch 2 (.fits / .png)</label>
-              <input type="file" id="fileE2" accept=".fits,.fit,.png,.jpg" class="w-full text-[10px] text-slate-300 file:mr-2 file:py-1 file:px-2 file:rounded file:border-0 file:bg-slate-800 file:text-orange-300 hover:file:bg-slate-700" />
+              <label for="fileE2" class="label block mb-0.5">Epoch 2 Plate (.fits / .png)</label>
+              <input type="file" id="fileE2" accept=".fits,.fit,.png,.jpg" class="w-full text-[11px] text-slate-300 file:mr-2 file:py-1 file:px-2.5 file:rounded file:border-0 file:bg-slate-800 file:text-orange-300 hover:file:bg-slate-700" />
             </div>
-            <button onclick="uploadCustomFits()" class="w-full py-1.5 px-3 rounded bg-slate-800 hover:bg-slate-700 border border-slate-600 text-cyan-300 font-medium transition">
-              ANALYZE UPLOADED PLATES
+            <button onclick="uploadCustomFits()" class="w-full py-2 px-3 rounded-lg bg-slate-800 hover:bg-slate-700 border border-slate-600 text-cyan-300 font-semibold transition">
+              Analyze Uploaded Plates
             </button>
           </div>
         </div>
       </section>
     </aside>
 
-    <!-- CENTER VIEWPORT: BLINK COMPARATOR -->
-    <section class="lg:col-span-6 hud-panel hud-corner rounded-xl p-4 flex flex-col">
+    <!-- CENTER COLUMN: STEP 2 BLINK COMPARATOR -->
+    <section class="lg:col-span-6 hud-panel rounded-xl p-4 flex flex-col">
       <div class="flex flex-wrap items-center justify-between gap-2 pb-3 border-b border-slate-800">
-        <div class="flex flex-wrap gap-1.5 mono text-[11px]">
-          <button onclick="setViewMode('blink')" id="btn-blink" class="view-tab px-2.5 py-1.5 rounded bg-cyan-500/20 border border-cyan-400 text-cyan-300 font-semibold">BLINK PULSE</button>
-          <button onclick="setViewMode('epoch1')" id="btn-epoch1" class="view-tab px-2.5 py-1.5 rounded bg-slate-900 border border-slate-700 text-slate-300 hover:border-cyan-500/50">EPOCH 1 (1953)</button>
-          <button onclick="setViewMode('epoch2')" id="btn-epoch2" class="view-tab px-2.5 py-1.5 rounded bg-slate-900 border border-slate-700 text-slate-300 hover:border-cyan-500/50">EPOCH 2 (1996 IR)</button>
-          <button onclick="setViewMode('diff')" id="btn-diff" class="view-tab px-2.5 py-1.5 rounded bg-slate-900 border border-slate-700 text-slate-300 hover:border-cyan-500/50">RESIDUAL DIFF</button>
-          <button onclick="setViewMode('blend')" id="btn-blend" class="view-tab px-2.5 py-1.5 rounded bg-slate-900 border border-slate-700 text-slate-300 hover:border-cyan-500/50">OPACITY SLIDER</button>
+        <div class="flex items-center gap-2">
+          <span class="step-num mono">2</span>
+          <div class="flex flex-wrap gap-1.5 mono text-[11px]" role="tablist" aria-label="Comparator view modes">
+            <button role="tab" onclick="setViewMode('blink')" id="btn-blink" class="view-tab px-2.5 py-1.5 rounded bg-cyan-500/20 border border-cyan-400 text-cyan-300 font-semibold">Blink Pulse</button>
+            <button role="tab" onclick="setViewMode('epoch1')" id="btn-epoch1" class="view-tab px-2.5 py-1.5 rounded bg-slate-900 border border-slate-700 text-slate-200 hover:border-cyan-500/50">Epoch 1</button>
+            <button role="tab" onclick="setViewMode('epoch2')" id="btn-epoch2" class="view-tab px-2.5 py-1.5 rounded bg-slate-900 border border-slate-700 text-slate-200 hover:border-cyan-500/50">Epoch 2</button>
+            <button role="tab" onclick="setViewMode('diff')" id="btn-diff" class="view-tab px-2.5 py-1.5 rounded bg-slate-900 border border-slate-700 text-slate-200 hover:border-cyan-500/50">Residual Diff</button>
+            <button role="tab" onclick="setViewMode('blend')" id="btn-blend" class="view-tab px-2.5 py-1.5 rounded bg-slate-900 border border-slate-700 text-slate-200 hover:border-cyan-500/50">Opacity Mix</button>
+          </div>
         </div>
 
-        <div class="flex items-center gap-2 mono text-[11px]">
-          <label class="flex items-center gap-1.5 cursor-pointer text-slate-300">
+        <div class="flex items-center gap-3 mono text-xs">
+          <label class="flex items-center gap-1.5 cursor-pointer text-slate-200">
             <input type="checkbox" id="toggleGrid" checked onchange="toggleOverlayLayers()" class="accent-cyan-400" />
-            <span>WCS GRID</span>
+            <span>WCS Grid</span>
           </label>
           <label class="flex items-center gap-1.5 cursor-pointer text-orange-300">
             <input type="checkbox" id="toggleTargets" checked onchange="toggleOverlayLayers()" class="accent-orange-400" />
-            <span>VECTORS</span>
+            <span>Vectors</span>
           </label>
         </div>
       </div>
 
-      <div id="sliderBar" class="py-2 px-3 bg-slate-950/70 border-b border-slate-800/80 flex items-center justify-between gap-4 mono text-[11px]">
-        <span id="sliderLabel" class="text-cyan-300">BLINK INTERVAL: 750 ms</span>
-        <input id="dynamicSlider" type="range" min="200" max="1500" value="750" class="w-48 accent-cyan-400" oninput="handleSliderChange(this.value)" />
-        <span id="activeEpochBadge" class="px-2 py-0.5 rounded bg-orange-500/20 border border-orange-500/40 text-orange-300 font-semibold">
-          SHOWING: EPOCH 1 (DSS1 RED)
+      <!-- TRANSPORT & SLIDER CONTROLS -->
+      <div id="sliderBar" class="py-2 px-3 bg-slate-950/85 border-b border-slate-800 flex flex-wrap items-center justify-between gap-3 mono text-xs">
+        <div id="blinkTransportGroup" class="flex items-center gap-1.5">
+          <button id="playPauseBtn" onclick="togglePlayPause()" class="px-2.5 py-1 rounded bg-slate-800 hover:bg-slate-700 border border-slate-600 text-cyan-300 font-semibold">
+            Pause
+          </button>
+          <button onclick="stepFrame()" class="px-2.5 py-1 rounded bg-slate-800 hover:bg-slate-700 border border-slate-600 text-slate-200">
+            Step
+          </button>
+        </div>
+
+        <div class="flex items-center gap-2">
+          <label for="dynamicSlider" id="sliderLabel" class="text-cyan-300">Speed: 750 ms</label>
+          <input id="dynamicSlider" type="range" min="200" max="1500" value="750" class="w-32 sm:w-44 accent-cyan-400" oninput="handleSliderChange(this.value)" />
+        </div>
+
+        <span id="activeEpochBadge" aria-live="polite" class="px-2.5 py-0.5 rounded bg-orange-500/20 border border-orange-500/40 text-orange-300 font-semibold text-[11px]">
+          EPOCH 1 (DSS1 RED)
         </span>
       </div>
 
-      <div class="relative flex-1 min-h-[430px] md:min-h-[500px] my-3 bg-black rounded-lg overflow-hidden border border-slate-800 flex items-center justify-center">
-        <div id="loaderOverlay" class="hidden absolute inset-0 z-30 bg-slate-950/85 backdrop-blur-sm flex flex-col items-center justify-center gap-3">
-          <div class="w-10 h-10 border-2 border-cyan-400 border-t-transparent rounded-full animate-spin"></div>
-          <span class="mono text-xs text-cyan-300 tracking-widest">CALIBRATING NASA FITS PLATES...</span>
+      <!-- FITS VIEWPORT CANVAS -->
+      <div class="relative w-full aspect-square max-w-[560px] mx-auto my-3 bg-black rounded-lg overflow-hidden border border-slate-800">
+        <div id="loaderOverlay" class="hidden absolute inset-0 z-30 bg-slate-950/85 flex flex-col items-center justify-center gap-3">
+          <div class="w-9 h-9 border-2 border-cyan-400 border-t-transparent rounded-full animate-spin"></div>
+          <span class="mono text-xs text-cyan-300 tracking-wider">CALIBRATING NASA FITS PLATES...</span>
         </div>
 
-        <div class="relative w-full h-full max-w-[560px] max-h-[560px] aspect-square">
-          <img id="imgBase" src="" alt="NASA FITS Epoch 1" class="w-full h-full object-contain select-none" />
-          <img id="imgOverlay" src="" alt="NASA FITS Epoch 2" class="w-full h-full object-contain absolute inset-0 opacity-0 transition-opacity duration-150 select-none" />
+        <div class="relative w-full h-full">
+          <img id="imgBase" src="" alt="Epoch 1 astronomical plate" class="w-full h-full object-contain select-none" />
+          <img id="imgOverlay" src="" alt="Epoch 2 astronomical plate" class="w-full h-full object-contain absolute inset-0 opacity-0 transition-opacity duration-150 select-none" />
 
-          <svg id="wcsGridSvg" viewBox="0 0 600 600" class="w-full h-full absolute inset-0 pointer-events-none opacity-45">
+          <svg id="wcsGridSvg" viewBox="0 0 600 600" class="w-full h-full absolute inset-0 pointer-events-none opacity-50" aria-hidden="true">
             <g stroke="#38bdf8" stroke-width="0.6" stroke-dasharray="3 3">
               <line x1="150" y1="0" x2="150" y2="600" />
               <line x1="300" y1="0" x2="300" y2="600" />
@@ -203,45 +297,119 @@
             <line x1="315" y1="300" x2="350" y2="300" stroke="#38bdf8" stroke-width="1" />
             <line x1="300" y1="250" x2="300" y2="285" stroke="#38bdf8" stroke-width="1" />
             <line x1="300" y1="315" x2="300" y2="350" stroke="#38bdf8" stroke-width="1" />
-            <text x="12" y="20" fill="#38bdf8" font-family="JetBrains Mono" font-size="11">FOV: 18.0' × 18.0' // INFERNO IR LUT</text>
-            <text x="455" y="588" fill="#94a3b8" font-family="JetBrains Mono" font-size="10">NORTH UP / EAST LEFT</text>
+            <rect x="8" y="7" width="198" height="18" fill="rgba(2,6,23,0.78)" rx="4" />
+            <text x="12" y="20" fill="#7dd3fc" font-family="JetBrains Mono" font-size="11">FOV: 18.0' × 18.0' // INFERNO LUT</text>
+            <rect x="448" y="570" width="144" height="21" fill="rgba(2,6,23,0.78)" rx="4" />
+            <text x="455" y="584" fill="#cbd5e1" font-family="JetBrains Mono" font-size="10">NORTH UP / EAST LEFT</text>
           </svg>
 
           <svg id="vectorsSvg" viewBox="0 0 600 600" class="w-full h-full absolute inset-0 pointer-events-none"></svg>
         </div>
       </div>
 
-      <div class="flex items-center justify-between mono text-[10px] text-slate-400 pt-1">
-        <span>LOW FLUX (0.0 ADU)</span>
+      <!-- FLUX SCALE LEGEND -->
+      <div class="flex items-center justify-between mono text-[11px] text-slate-300 pt-1">
+        <span>0.0 ADU</span>
         <div class="flex-1 mx-3 h-2 rounded-full bg-gradient-to-r from-[#000004] via-[#781c6d] via-[#ed6925] to-[#fcffa4] border border-slate-700"></div>
-        <span>SATURATED CORE (65535 ADU)</span>
+        <span>65535 ADU</span>
       </div>
     </section>
 
-    <!-- RIGHT SIDEBAR: ANOMALIES & SPECTRUM -->
+    <!-- RIGHT COLUMN: STEP 3 DETECTIONS & STEP 4 SPECTRUM -->
     <aside class="lg:col-span-3 flex flex-col gap-4">
       <section class="hud-panel rounded-xl p-4">
         <div class="flex items-center justify-between mb-3">
-          <h2 class="mono text-xs font-bold uppercase tracking-wider text-cyan-400">03 // Motion Detections</h2>
+          <div class="flex items-center gap-2">
+            <span class="step-num mono">3</span>
+            <h2 class="text-sm font-bold text-white">Motion Detections</h2>
+          </div>
           <span id="anomalyCountBadge" class="mono text-xs font-bold px-2 py-0.5 rounded bg-orange-500/20 text-orange-300 border border-orange-500/40">0 OBJECTS</span>
         </div>
         <div id="candidatesList" class="space-y-2.5 max-h-[260px] overflow-y-auto pr-1"></div>
       </section>
 
-      <section class="hud-panel hud-corner rounded-xl p-4 flex-1 flex flex-col">
+      <section class="hud-panel rounded-xl p-4">
         <div class="flex items-center justify-between mb-1">
-          <h2 class="mono text-xs font-bold uppercase tracking-wider text-orange-400">04 // SPHEREx 102-Band SED</h2>
-          <span id="selectedCandId" class="mono text-[11px] text-cyan-300">SPX-2026-01</span>
+          <div class="flex items-center gap-2">
+            <span class="step-num mono">4</span>
+            <h2 class="text-sm font-bold text-white">SPHEREx 102-Band SED</h2>
+          </div>
+          <span id="selectedCandId" class="mono text-xs text-cyan-300 font-semibold">SPX-2026-01</span>
         </div>
-        <p class="mono text-[10px] text-slate-400 mb-2">
-          Absorption dips: H₂O (2.70µm), Silicate (2.95µm), CH₄ (3.32µm)
+        <p class="text-xs text-slate-300 mb-2">
+          Ice absorption: <span class="text-sky-300 font-medium">H₂O (2.70µm)</span> · <span class="text-amber-300 font-medium">Silicate (2.95µm)</span> · <span class="text-emerald-300 font-medium">CH₄ (3.32µm)</span>
         </p>
-        <div class="relative flex-1 min-h-[210px]">
+        <div class="relative h-[230px] max-h-[240px]">
           <canvas id="spectrumChart"></canvas>
         </div>
       </section>
     </aside>
   </main>
+
+  <div id="dossierModal" class="hidden fixed inset-0 z-[70] bg-slate-950/80 backdrop-blur-sm p-4 md:p-8" role="dialog" aria-modal="true" aria-labelledby="dossierTitle">
+    <div class="mx-auto flex max-h-full w-full max-w-4xl flex-col overflow-hidden rounded-2xl border border-cyan-400/30 bg-slate-950 shadow-[0_0_40px_rgba(14,165,233,0.2)]">
+      <div class="flex items-start justify-between gap-4 border-b border-slate-800 px-5 py-4">
+        <div>
+          <div class="mono text-[10px] uppercase tracking-[0.18em] text-cyan-300">SPHEREx-EYE // Flight Operations</div>
+          <h2 id="dossierTitle" class="mt-1 text-lg font-bold text-white">Astronaut Object Dossier</h2>
+          <p id="dossierSubtitle" class="mono text-xs text-slate-400">No candidate selected</p>
+        </div>
+        <button type="button" onclick="closeDossier()" class="rounded-lg border border-slate-700 bg-slate-900 px-3 py-1.5 text-xs text-slate-200 hover:border-cyan-400" aria-label="Close dossier">Close</button>
+      </div>
+
+      <div class="overflow-y-auto p-5">
+        <div class="grid grid-cols-1 gap-4 lg:grid-cols-2">
+          <section class="rounded-xl border border-slate-800 bg-slate-900/70 p-4">
+            <div class="mb-3 flex items-center justify-between gap-3">
+              <h3 class="text-sm font-bold text-cyan-200">Object Telemetry</h3>
+              <span id="dossierHazard" class="rounded border px-2 py-1 mono text-[10px] font-bold">--</span>
+            </div>
+            <div class="space-y-2 mono text-xs">
+              <div class="flex justify-between gap-3"><span class="text-slate-400">OBJECT ID</span><span id="dossierObjectId" class="text-right text-white">--</span></div>
+              <div class="flex justify-between gap-3"><span class="text-slate-400">CLASSIFICATION</span><span id="dossierClassification" class="max-w-[65%] text-right text-cyan-300">--</span></div>
+              <div class="flex justify-between gap-3"><span class="text-slate-400">RA / DEC</span><span id="dossierCoordinates" class="text-right text-white">--</span></div>
+              <div class="flex justify-between gap-3"><span class="text-slate-400">ANGULAR SHIFT</span><span id="dossierAngularShift" class="text-right text-white">--</span></div>
+              <div class="flex justify-between gap-3"><span class="text-slate-400">TANGENTIAL VELOCITY</span><span id="dossierVelocity" class="text-right text-white">--</span></div>
+              <div class="flex justify-between gap-3"><span class="text-slate-400">SURFACE TEMP</span><span id="dossierTemperature" class="text-right text-white">--</span></div>
+              <div class="flex justify-between gap-3"><span class="text-slate-400">DISTANCE</span><span id="dossierDistance" class="text-right text-white">--</span></div>
+            </div>
+          </section>
+
+          <section class="rounded-xl border border-slate-800 bg-slate-900/70 p-4">
+            <h3 class="mb-3 text-sm font-bold text-emerald-200">Chemical Ice / Mineral Composition</h3>
+            <div class="space-y-3 text-xs">
+              <div>
+                <div class="mb-1 flex justify-between mono"><span class="text-sky-300">H₂O ICE</span><span id="dossierWaterPct">--%</span></div>
+                <div class="h-2 rounded-full bg-slate-800"><div id="dossierWaterBar" class="h-2 rounded-full bg-sky-400 transition-all" style="width: 0%"></div></div>
+              </div>
+              <div>
+                <div class="mb-1 flex justify-between mono"><span class="text-amber-300">SILICATE</span><span id="dossierSilicatePct">--%</span></div>
+                <div class="h-2 rounded-full bg-slate-800"><div id="dossierSilicateBar" class="h-2 rounded-full bg-amber-400 transition-all" style="width: 0%"></div></div>
+              </div>
+              <div>
+                <div class="mb-1 flex justify-between mono"><span class="text-emerald-300">CH₄</span><span id="dossierMethanePct">--%</span></div>
+                <div class="h-2 rounded-full bg-slate-800"><div id="dossierMethaneBar" class="h-2 rounded-full bg-emerald-400 transition-all" style="width: 0%"></div></div>
+              </div>
+            </div>
+            <div class="mt-4 border-t border-slate-800 pt-3 mono text-xs">
+              <div class="mb-1 text-violet-200">Gaia DR3 Cross-Match</div>
+              <div id="dossierGaia" class="text-slate-300">--</div>
+            </div>
+          </section>
+        </div>
+
+        <section class="mt-4 rounded-xl border border-cyan-500/30 bg-cyan-950/20 p-4">
+          <h3 class="mb-2 text-sm font-bold text-cyan-200">Astronaut Mission Brief</h3>
+          <p id="dossierBrief" class="text-sm leading-relaxed text-slate-200">--</p>
+        </section>
+
+        <div class="mt-4 flex flex-wrap justify-end gap-2">
+          <button type="button" onclick="printMissionReport()" class="rounded-lg bg-cyan-500 px-3 py-2 mono text-xs font-bold uppercase tracking-wide text-slate-950 hover:bg-cyan-400">Download Mission Report (Print / PDF)</button>
+          <button type="button" onclick="exportTelemetryJson()" class="rounded-lg border border-violet-400/50 bg-violet-500/15 px-3 py-2 mono text-xs font-bold uppercase tracking-wide text-violet-200 hover:bg-violet-500/25">Export Telemetry (.JSON)</button>
+        </div>
+      </div>
+    </div>
+  </div>
 
   <script>
     let currentData = null;
@@ -249,22 +417,74 @@
     let viewMode = 'blink';
     let blinkTimer = null;
     let blinkState = false;
+    let isPaused = false;
     let blinkIntervalMs = 750;
     let spectrumChart = null;
+    let activeScanController = null;
+    let scanRequestId = 0;
 
     setInterval(() => {
       document.getElementById('utcClock').textContent = new Date().toISOString().substring(11, 19) + ' UTC';
     }, 1000);
+
+    function toggleHowItWorks() {
+      const box = document.getElementById('howItWorksBox');
+      const btn = document.getElementById('howItWorksBtn');
+      const isHidden = box.classList.toggle('hidden');
+      btn.setAttribute('aria-expanded', String(!isHidden));
+    }
+
+    function showError(msg) {
+      document.getElementById('errorMessage').textContent = msg;
+      document.getElementById('errorBanner').classList.remove('hidden');
+    }
+
+    function dismissError() {
+      document.getElementById('errorBanner').classList.add('hidden');
+    }
 
     function toggleOverlayLayers() {
       document.getElementById('wcsGridSvg').style.display = document.getElementById('toggleGrid').checked ? 'block' : 'none';
       document.getElementById('vectorsSvg').style.display = document.getElementById('toggleTargets').checked ? 'block' : 'none';
     }
 
+    function renderBlinkFrame() {
+      const imgOverlay = document.getElementById('imgOverlay');
+      const badge = document.getElementById('activeEpochBadge');
+      const e1Name = (currentData?.epoch1_survey || 'DSS1 RED').toUpperCase();
+      const e2Name = (currentData?.epoch2_survey || 'DSS2 IR').toUpperCase();
+
+      imgOverlay.style.opacity = blinkState ? 1 : 0;
+      badge.textContent = blinkState ? `EPOCH 2 (${e2Name})` : `EPOCH 1 (${e1Name})`;
+      badge.className = blinkState
+        ? 'px-2.5 py-0.5 rounded bg-cyan-500/20 border border-cyan-500/40 text-cyan-300 font-semibold text-[11px]'
+        : 'px-2.5 py-0.5 rounded bg-orange-500/20 border border-orange-500/40 text-orange-300 font-semibold text-[11px]';
+    }
+
+    function togglePlayPause() {
+      isPaused = !isPaused;
+      document.getElementById('playPauseBtn').textContent = isPaused ? 'Play' : 'Pause';
+      if (isPaused) {
+        if (blinkTimer) { clearInterval(blinkTimer); blinkTimer = null; }
+      } else {
+        startBlinkLoop();
+      }
+    }
+
+    function stepFrame() {
+      if (!isPaused) {
+        isPaused = true;
+        document.getElementById('playPauseBtn').textContent = 'Play';
+        if (blinkTimer) { clearInterval(blinkTimer); blinkTimer = null; }
+      }
+      blinkState = !blinkState;
+      renderBlinkFrame();
+    }
+
     function setViewMode(mode) {
       viewMode = mode;
       document.querySelectorAll('.view-tab').forEach(btn => {
-        btn.className = 'view-tab px-2.5 py-1.5 rounded bg-slate-900 border border-slate-700 text-slate-300 hover:border-cyan-500/50';
+        btn.className = 'view-tab px-2.5 py-1.5 rounded bg-slate-900 border border-slate-700 text-slate-200 hover:border-cyan-500/50';
       });
       const activeBtn = document.getElementById(`btn-${mode}`);
       if (activeBtn) activeBtn.className = 'view-tab px-2.5 py-1.5 rounded bg-cyan-500/20 border border-cyan-400 text-cyan-300 font-semibold';
@@ -272,30 +492,38 @@
       if (blinkTimer) { clearInterval(blinkTimer); blinkTimer = null; }
       if (!currentData) return;
 
+      const e1Label = currentData.epoch1_survey || 'DSS1 Red (1953)';
+      const e2Label = currentData.epoch2_survey || 'DSS2 IR (1996)';
+      document.getElementById('btn-epoch1').textContent = `Epoch 1 (${e1Label.split(' ')[0]})`;
+      document.getElementById('btn-epoch2').textContent = `Epoch 2 (${e2Label.split(' ')[0]})`;
+
       const imgBase = document.getElementById('imgBase');
       const imgOverlay = document.getElementById('imgOverlay');
       const sliderBar = document.getElementById('sliderBar');
+      const transportGroup = document.getElementById('blinkTransportGroup');
       const sliderLabel = document.getElementById('sliderLabel');
       const slider = document.getElementById('dynamicSlider');
       const badge = document.getElementById('activeEpochBadge');
 
       if (mode === 'blink') {
         sliderBar.style.display = 'flex';
+        transportGroup.style.display = 'flex';
         slider.min = 200; slider.max = 1500; slider.value = blinkIntervalMs;
-        sliderLabel.textContent = `BLINK INTERVAL: ${blinkIntervalMs} ms`;
+        sliderLabel.textContent = `Speed: ${blinkIntervalMs} ms`;
         imgBase.src = currentData.images.epoch1;
         imgOverlay.src = currentData.images.epoch2;
-        startBlinkLoop();
+        renderBlinkFrame();
+        if (!isPaused) startBlinkLoop();
       } else if (mode === 'epoch1') {
         sliderBar.style.display = 'none';
         imgBase.src = currentData.images.epoch1;
         imgOverlay.style.opacity = 0;
-        badge.textContent = 'EPOCH 1 (DSS1 RED - 1953)';
+        badge.textContent = `EPOCH 1 (${e1Label.toUpperCase()})`;
       } else if (mode === 'epoch2') {
         sliderBar.style.display = 'none';
         imgBase.src = currentData.images.epoch2;
         imgOverlay.style.opacity = 0;
-        badge.textContent = 'EPOCH 2 (DSS2 IR - 1996)';
+        badge.textContent = `EPOCH 2 (${e2Label.toUpperCase()})`;
       } else if (mode === 'diff') {
         sliderBar.style.display = 'none';
         imgBase.src = currentData.images.difference_map;
@@ -303,8 +531,9 @@
         badge.textContent = 'PIXEL RESIDUAL HEATMAP';
       } else if (mode === 'blend') {
         sliderBar.style.display = 'flex';
+        transportGroup.style.display = 'none';
         slider.min = 0; slider.max = 100; slider.value = 50;
-        sliderLabel.textContent = 'EPOCH MIX: 50% IR';
+        sliderLabel.textContent = 'Mix: 50% E2';
         imgBase.src = currentData.images.epoch1;
         imgOverlay.src = currentData.images.epoch2;
         imgOverlay.style.opacity = 0.5;
@@ -314,26 +543,21 @@
 
     function handleSliderChange(val) {
       if (viewMode === 'blink') {
-        blinkIntervalMs = parseInt(val);
-        document.getElementById('sliderLabel').textContent = `BLINK INTERVAL: ${blinkIntervalMs} ms`;
+        blinkIntervalMs = parseInt(val, 10);
+        document.getElementById('sliderLabel').textContent = `Speed: ${blinkIntervalMs} ms`;
         if (blinkTimer) clearInterval(blinkTimer);
-        startBlinkLoop();
+        if (!isPaused) startBlinkLoop();
       } else if (viewMode === 'blend') {
-        document.getElementById('sliderLabel').textContent = `EPOCH MIX: ${val}% IR`;
+        document.getElementById('sliderLabel').textContent = `Mix: ${val}% E2`;
         document.getElementById('imgOverlay').style.opacity = val / 100;
       }
     }
 
     function startBlinkLoop() {
-      const imgOverlay = document.getElementById('imgOverlay');
-      const badge = document.getElementById('activeEpochBadge');
+      if (blinkTimer) clearInterval(blinkTimer);
       blinkTimer = setInterval(() => {
         blinkState = !blinkState;
-        imgOverlay.style.opacity = blinkState ? 1 : 0;
-        badge.textContent = blinkState ? 'SHOWING: EPOCH 2 (DSS2 IR)' : 'SHOWING: EPOCH 1 (DSS1 RED)';
-        badge.className = blinkState
-          ? 'px-2 py-0.5 rounded bg-cyan-500/20 border border-cyan-500/40 text-cyan-300 font-semibold'
-          : 'px-2 py-0.5 rounded bg-orange-500/20 border border-orange-500/40 text-orange-300 font-semibold';
+        renderBlinkFrame();
       }, blinkIntervalMs);
     }
 
@@ -345,14 +569,16 @@
         const color = isSelected ? '#38bdf8' : '#f97316';
         const { x: x1, y: y1 } = c.epoch1_pos;
         const { x: x2, y: y2 } = c.epoch2_pos;
+        const labelX = Math.max(6, Math.min(x2 + 8, 514));
 
         svg.innerHTML += `
-          <g>
-            <line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" stroke="${color}" stroke-width="${isSelected ? 2 : 1.3}" stroke-dasharray="4 3" />
-            <circle cx="${x1}" cy="${y1}" r="7" fill="none" stroke="#f97316" stroke-width="1.5" />
-            <rect x="${x2 - 11}" y="${y2 - 11}" width="22" height="22" fill="none" stroke="${color}" stroke-width="${isSelected ? 2 : 1.4}" />
-            <text x="${x2 + 14}" y="${y2 - 6}" fill="${color}" font-family="JetBrains Mono" font-size="11" font-weight="bold">${c.id}</text>
-            <text x="${x2 + 14}" y="${y2 + 7}" fill="#e2e8f0" font-family="JetBrains Mono" font-size="9">${c.proper_motion_arcsec}"</text>
+          <g role="button" tabindex="0" aria-label="Inspect ${c.id} dossier" class="cursor-pointer" style="pointer-events: auto;" onclick="selectCandidate(${idx}); openDossier(${idx})" onkeydown="if(event.key==='Enter'||event.key===' '){selectCandidate(${idx}); openDossier(${idx})}">
+            <line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" stroke="${color}" stroke-width="${isSelected ? 2.2 : 1.4}" stroke-dasharray="4 3" />
+            <circle cx="${x1}" cy="${y1}" r="7" fill="none" stroke="#f97316" stroke-width="1.6" />
+            <rect x="${x2 - 11}" y="${y2 - 11}" width="22" height="22" fill="none" stroke="${color}" stroke-width="${isSelected ? 2.2 : 1.5}" />
+            <rect x="${labelX}" y="${y2 - 18}" width="78" height="17" fill="rgba(2,6,23,0.78)" rx="4" />
+            <text x="${labelX + 6}" y="${y2 - 6}" fill="${color}" font-family="JetBrains Mono" font-size="11" font-weight="bold">${c.id}</text>
+            <text x="${labelX + 6}" y="${y2 + 7}" fill="#f1f5f9" font-family="JetBrains Mono" font-size="10">${c.proper_motion_arcsec}"</text>
           </g>
         `;
       });
@@ -363,7 +589,7 @@
       document.getElementById('anomalyCountBadge').textContent = `${candidates.length} OBJECTS`;
 
       if (!candidates.length) {
-        container.innerHTML = `<div class="text-xs mono text-slate-400 p-3 bg-slate-900/60 rounded-lg">No high-proper-motion anomalies exceeded threshold in this sector.</div>`;
+        container.innerHTML = `<div class="text-xs text-slate-300 p-3 bg-slate-900/70 rounded-lg">No high-proper-motion anomalies exceeded threshold in this sector.</div>`;
         return;
       }
 
@@ -376,19 +602,23 @@
           : 'bg-purple-500/20 text-purple-300 border-purple-500/40';
 
         return `
-          <div onclick="selectCandidate(${idx})" class="cursor-pointer p-3 rounded-lg border transition ${
-            active ? 'bg-cyan-950/50 border-cyan-400 shadow-md shadow-cyan-950/60' : 'bg-slate-900/70 border-slate-800 hover:border-slate-600'
-          }">
+          <div tabindex="0" role="button" onclick="selectCandidate(${idx}); openDossier(${idx})" onkeydown="if(event.key==='Enter'||event.key===' '){selectCandidate(${idx}); openDossier(${idx})}"
+            class="cursor-pointer p-3 rounded-lg border transition ${
+              active ? 'bg-cyan-950/60 border-cyan-400' : 'bg-slate-900/75 border-slate-800 hover:border-slate-600'
+            }">
             <div class="flex items-center justify-between mb-1">
               <span class="mono text-xs font-bold text-white">${c.id}</span>
-              <span class="mono text-[10px] px-1.5 py-0.5 rounded border ${badgeColor}">${c.confidence}% CONF</span>
+              <span class="mono text-[11px] px-1.5 py-0.5 rounded border ${badgeColor}">${c.confidence}% CONF</span>
             </div>
             <div class="text-xs font-semibold text-cyan-300 mb-1.5">${c.classification}</div>
-            <div class="grid grid-cols-3 gap-1 mono text-[10px] text-slate-400 border-t border-slate-800 pt-1.5">
-              <div>SHIFT: <span class="text-slate-200">${c.proper_motion_arcsec}"</span></div>
-              <div>TEMP: <span class="text-slate-200">${c.estimated_temp_k}K</span></div>
-              <div>DIST: <span class="text-slate-200">${c.estimated_distance_au}AU</span></div>
+            <div class="grid grid-cols-3 gap-1 mono text-[11px] text-slate-300 border-t border-slate-800 pt-1.5">
+              <div>SHIFT: <span class="text-white">${c.proper_motion_arcsec}"</span></div>
+              <div>TEMP: <span class="text-white">${c.estimated_temp_k}K</span></div>
+              <div>DIST: <span class="text-white">${c.estimated_distance_au}AU</span></div>
             </div>
+            <button type="button" onclick="event.stopPropagation(); selectCandidate(${idx}); openDossier(${idx})" class="mt-2 w-full rounded border border-cyan-400/40 bg-cyan-500/10 px-2 py-1.5 mono text-[10px] font-bold uppercase tracking-wide text-cyan-200 hover:bg-cyan-500/20">
+              Inspect Dossier &amp; Report
+            </button>
           </div>
         `;
       }).join('');
@@ -402,13 +632,252 @@
       updateSpectrumChart(currentData.wavelengths, currentData.candidates[idx]);
     }
 
+    function formatTelemetryNumber(value, digits = 2) {
+      return value == null || !Number.isFinite(Number(value)) ? '--' : Number(value).toFixed(digits);
+    }
+
+    function escapeHtml(value) {
+      return String(value ?? '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#039;');
+    }
+
+    function getSelectedCandidate() {
+      return currentData?.candidates?.[selectedCandidateIdx] || null;
+    }
+
+    function updateDossier(candidate) {
+      const composition = candidate.composition_breakdown || {};
+      const gaia = currentData?.gaia_dr3;
+      const ra = formatTelemetryNumber(currentData?.ra, 4);
+      const dec = formatTelemetryNumber(currentData?.dec, 4);
+      const distance = candidate.distance_au ?? candidate.estimated_distance_au;
+      const temperature = candidate.surface_temp_k ?? candidate.estimated_temp_k;
+      const velocity = candidate.tangential_velocity_kms;
+      const hazard = candidate.hazard_level || 'LOW (Nominal)';
+      const hazardBadge = document.getElementById('dossierHazard');
+      const setComposition = (name, value) => {
+        const pct = Math.max(0, Math.min(100, Number(value) || 0));
+        document.getElementById(`${name}Pct`).textContent = `${pct}%`;
+        document.getElementById(`${name}Bar`).style.width = `${pct}%`;
+      };
+
+      document.getElementById('dossierTitle').textContent = candidate.object_type || candidate.classification;
+      document.getElementById('dossierSubtitle').textContent = `${candidate.id} // ${candidate.classification}`;
+      document.getElementById('dossierObjectId').textContent = candidate.id;
+      document.getElementById('dossierClassification').textContent = candidate.object_type || candidate.classification;
+      document.getElementById('dossierCoordinates').textContent = `${ra}° / ${dec}°`;
+      document.getElementById('dossierAngularShift').textContent = `${formatTelemetryNumber(candidate.proper_motion_arcsec)}"`;
+      document.getElementById('dossierVelocity').textContent = `${formatTelemetryNumber(velocity, 3)} km/s`;
+      document.getElementById('dossierTemperature').textContent = `${formatTelemetryNumber(temperature, 0)} K`;
+      document.getElementById('dossierDistance').textContent = `${formatTelemetryNumber(distance)} AU`;
+      document.getElementById('dossierBrief').textContent = candidate.astronaut_brief || 'Mission brief unavailable.';
+      setComposition('dossierWater', composition.water_ice_pct);
+      setComposition('dossierSilicate', composition.silicate_pct);
+      setComposition('dossierMethane', composition.methane_pct);
+
+      hazardBadge.textContent = hazard;
+      hazardBadge.className = hazard.startsWith('HIGH')
+        ? 'rounded border border-red-500/50 bg-red-500/15 px-2 py-1 mono text-[10px] font-bold text-red-300'
+        : hazard.startsWith('MODERATE')
+        ? 'rounded border border-amber-500/50 bg-amber-500/15 px-2 py-1 mono text-[10px] font-bold text-amber-300'
+        : 'rounded border border-emerald-500/50 bg-emerald-500/15 px-2 py-1 mono text-[10px] font-bold text-emerald-300';
+
+      document.getElementById('dossierGaia').textContent = gaia
+        ? `${gaia.source || 'UNKNOWN'} // ${gaia.source_id || '--'} // PM ${formatTelemetryNumber(gaia.proper_motion_arcsec_yr, 4)} "/yr // G ${formatTelemetryNumber(gaia.phot_g_mean_mag)}`
+        : 'Unavailable for this observation.';
+    }
+
+    function openDossier(idx = selectedCandidateIdx) {
+      if (!currentData?.candidates?.[idx]) return;
+      selectCandidate(idx);
+      updateDossier(currentData.candidates[idx]);
+      document.getElementById('dossierModal').classList.remove('hidden');
+    }
+
+    function closeDossier() {
+      document.getElementById('dossierModal').classList.add('hidden');
+    }
+
+    function buildTelemetryPackage() {
+      const candidate = getSelectedCandidate();
+      return {
+        report_type: 'SPHEREx-EYE Astronaut Mission Report',
+        generated_utc: new Date().toISOString(),
+        object: candidate,
+        coordinates: { ra_deg: currentData?.ra ?? null, dec_deg: currentData?.dec ?? null },
+        gaia_dr3: currentData?.gaia_dr3 || null,
+        data_source: currentData?.data_source || null,
+        epoch_mode: currentData?.epoch_mode || null,
+        fits_metadata: currentData?.fits_metadata || null
+      };
+    }
+
+    function exportTelemetryJson() {
+      const candidate = getSelectedCandidate();
+      if (!candidate) return;
+      const blob = new Blob([JSON.stringify(buildTelemetryPackage(), null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `${candidate.id}-mission-telemetry.json`;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      URL.revokeObjectURL(url);
+    }
+
+    function printMissionReport() {
+      const candidate = getSelectedCandidate();
+      if (!candidate) return;
+
+      const composition = candidate.composition_breakdown || {};
+      const gaia = currentData?.gaia_dr3;
+      const snapshot = document.getElementById('imgBase')?.src || currentData?.images?.epoch1 || '';
+      const report = `<!doctype html>
+        <html><head><title>${escapeHtml(candidate.id)} Mission Report</title>
+        <style>
+          body{font-family:Arial,sans-serif;color:#142033;margin:32px;line-height:1.45}
+          header{border-bottom:3px solid #0e7490;padding-bottom:14px}
+          h1{margin:0;color:#0e7490;font-size:24px} h2{color:#155e75;margin-top:24px}
+          .meta{color:#475569;font-size:12px}.grid{display:grid;grid-template-columns:1fr 1fr;gap:8px 24px}
+          table{width:100%;border-collapse:collapse;font-size:13px}td{border-bottom:1px solid #cbd5e1;padding:7px;text-align:left}
+          td:first-child{font-weight:bold;width:34%;color:#334155}.snapshot{display:block;width:440px;max-width:100%;margin:18px auto;border:1px solid #94a3b8}
+          .bar{height:10px;background:#e2e8f0}.fill{height:10px}.brief{background:#ecfeff;border-left:4px solid #0891b2;padding:12px}
+          @media print{body{margin:18px}.snapshot{width:380px}}
+        </style></head><body>
+        <header><h1>SPHEREx-EYE Astronaut Mission Report</h1>
+        <div class="meta">NASA Space Apps // Flight Operations Science Package</div>
+        <div class="meta">Generated UTC: ${escapeHtml(new Date().toISOString())}</div></header>
+        <h2>${escapeHtml(candidate.id)} — ${escapeHtml(candidate.object_type || candidate.classification)}</h2>
+        ${snapshot ? `<img class="snapshot" src="${snapshot}" alt="Epoch 1 FITS plate snapshot">` : ''}
+        <table><tbody>
+          <tr><td>Classification</td><td>${escapeHtml(candidate.classification)}</td></tr>
+          <tr><td>Coordinates (RA / DEC)</td><td>${escapeHtml(formatTelemetryNumber(currentData?.ra, 4))}° / ${escapeHtml(formatTelemetryNumber(currentData?.dec, 4))}°</td></tr>
+          <tr><td>Angular Shift</td><td>${escapeHtml(formatTelemetryNumber(candidate.proper_motion_arcsec))}"</td></tr>
+          <tr><td>Tangential Velocity</td><td>${escapeHtml(formatTelemetryNumber(candidate.tangential_velocity_kms, 3))} km/s</td></tr>
+          <tr><td>Surface Temperature</td><td>${escapeHtml(formatTelemetryNumber(candidate.surface_temp_k, 0))} K</td></tr>
+          <tr><td>Distance</td><td>${escapeHtml(formatTelemetryNumber(candidate.distance_au))} AU</td></tr>
+          <tr><td>Hazard Level</td><td>${escapeHtml(candidate.hazard_level || '--')}</td></tr>
+          <tr><td>Gaia DR3</td><td>${escapeHtml(gaia ? `${gaia.source} // ${gaia.source_id}` : 'Unavailable')}</td></tr>
+        </tbody></table>
+        <h2>Chemical Ice / Mineral Composition</h2>
+        <div class="grid">
+          ${[['H₂O Ice', composition.water_ice_pct, '#0ea5e9'], ['Silicate', composition.silicate_pct, '#f59e0b'], ['CH₄', composition.methane_pct, '#10b981']].map(([label, value, color]) => `<div><b>${label}: ${value || 0}%</b><div class="bar"><div class="fill" style="width:${value || 0}%;background:${color}"></div></div></div>`).join('')}
+        </div>
+        <h2>Astronaut Mission Brief</h2><div class="brief">${escapeHtml(candidate.astronaut_brief || 'Mission brief unavailable.')}</div>
+        </body></html>`;
+
+      const fallbackPrint = () => {
+        const reportWindow = window.open('', '_blank', 'noopener,noreferrer,width=960,height=900');
+        if (!reportWindow) {
+          showError('Please allow pop-ups to generate the printable mission report.');
+          return;
+        }
+        reportWindow.document.open();
+        reportWindow.document.write(report);
+        reportWindow.document.close();
+        reportWindow.focus();
+        setTimeout(() => reportWindow.print(), 250);
+      };
+
+      let printFrame = document.getElementById('reportPrintFrame');
+      if (!printFrame) {
+        printFrame = document.createElement('iframe');
+        printFrame.id = 'reportPrintFrame';
+        printFrame.style.cssText = 'position:fixed;right:0;bottom:0;width:0;height:0;border:0;';
+        printFrame.setAttribute('aria-hidden', 'true');
+        document.body.appendChild(printFrame);
+      }
+
+      try {
+        const frameWindow = printFrame.contentWindow;
+        const frameDocument = frameWindow && frameWindow.document;
+        if (!frameWindow || !frameDocument || typeof frameWindow.print !== 'function') {
+          fallbackPrint();
+          return;
+        }
+
+        frameDocument.open();
+        frameDocument.write(report);
+        frameDocument.close();
+
+        const snapshotImage = frameDocument.querySelector('.snapshot');
+        let hasPrinted = false;
+        const printFrameReport = () => {
+          if (hasPrinted) return;
+          hasPrinted = true;
+          frameWindow.focus();
+          frameWindow.print();
+        };
+
+        if (snapshotImage && !snapshotImage.complete) {
+          snapshotImage.addEventListener('load', () => setTimeout(printFrameReport, 100), { once: true });
+          snapshotImage.addEventListener('error', () => setTimeout(printFrameReport, 100), { once: true });
+          setTimeout(printFrameReport, 1000);
+        } else {
+          setTimeout(printFrameReport, 150);
+        }
+      } catch (error) {
+        fallbackPrint();
+      }
+    }
+
+    const absorptionLinesPlugin = {
+      id: 'absorptionLines',
+      beforeDatasetsDraw(chart) {
+        const { ctx, chartArea, scales } = chart;
+        if (!chartArea || !scales.x) return;
+        const labels = chart.data.labels.map(Number);
+        const features = [
+          { wl: 2.70, name: 'H₂O', color: 'rgba(56, 189, 248, 0.65)' },
+          { wl: 2.95, name: 'Sil', color: 'rgba(251, 191, 36, 0.65)' },
+          { wl: 3.32, name: 'CH₄', color: 'rgba(52, 211, 153, 0.65)' }
+        ];
+
+        ctx.save();
+        features.forEach((f, featureIdx) => {
+          let bestIdx = 0;
+          let minDiff = Infinity;
+          labels.forEach((v, i) => {
+            const d = Math.abs(v - f.wl);
+            if (d < minDiff) { minDiff = d; bestIdx = i; }
+          });
+          const x = scales.x.getPixelForValue(bestIdx);
+          ctx.beginPath();
+          ctx.setLineDash([3, 3]);
+          ctx.strokeStyle = f.color;
+          ctx.lineWidth = 1.2;
+          ctx.moveTo(x, chartArea.top);
+          ctx.lineTo(x, chartArea.bottom);
+          ctx.stroke();
+
+          ctx.font = '600 10px "JetBrains Mono", monospace';
+          const labelY = chartArea.top + 12 + featureIdx * 12;
+          const textWidth = ctx.measureText(f.name).width;
+          const labelX = Math.min(x + 3, chartArea.right - textWidth - 10);
+          ctx.beginPath();
+          ctx.fillStyle = 'rgba(2, 6, 23, 0.78)';
+          ctx.roundRect(labelX, labelY - 10, textWidth + 8, 12, 4);
+          ctx.fill();
+          ctx.fillStyle = f.color;
+          ctx.fillText(f.name, labelX + 4, labelY);
+        });
+        ctx.restore();
+      }
+    };
+
     function updateSpectrumChart(wavelengths, candidate) {
-      document.getElementById('selectedCandId').textContent = `${candidate.id} (${candidate.classification})`;
+      document.getElementById('selectedCandId').textContent = candidate.id;
       const ctx = document.getElementById('spectrumChart').getContext('2d');
       if (spectrumChart) spectrumChart.destroy();
 
       spectrumChart = new Chart(ctx, {
         type: 'line',
+        plugins: [absorptionLinesPlugin],
         data: {
           labels: wavelengths,
           datasets: [{
@@ -435,13 +904,13 @@
           },
           scales: {
             x: {
-              ticks: { color: '#64748b', maxTicksLimit: 6, font: { family: 'JetBrains Mono', size: 10 } },
+              ticks: { color: '#94a3b8', maxTicksLimit: 6, font: { family: 'JetBrains Mono', size: 10 } },
               grid: { color: 'rgba(30, 41, 59, 0.5)' },
-              title: { display: true, text: 'Wavelength (µm)', color: '#94a3b8', font: { family: 'JetBrains Mono', size: 10 } }
+              title: { display: true, text: 'Wavelength (µm)', color: '#cbd5e1', font: { family: 'JetBrains Mono', size: 10 } }
             },
             y: {
               min: 0, max: 1.05,
-              ticks: { color: '#64748b', maxTicksLimit: 5, font: { family: 'JetBrains Mono', size: 10 } },
+              ticks: { color: '#94a3b8', maxTicksLimit: 5, font: { family: 'JetBrains Mono', size: 10 } },
               grid: { color: 'rgba(30, 41, 59, 0.5)' }
             }
           }
@@ -450,15 +919,45 @@
     }
 
     function applyScanPayload(data) {
+      dismissError();
       currentData = data;
       selectedCandidateIdx = 0;
 
       document.getElementById('metaSource').textContent = data.data_source || 'NASA SkyView';
+      const gaia = data.gaia_dr3;
+      const gaiaStatus = document.getElementById('gaiaStatusBadge');
+      document.getElementById('gaiaSourceId').textContent = gaia?.source_id || '--';
+      document.getElementById('gaiaProperMotion').textContent = gaia?.proper_motion_arcsec_yr == null
+        ? '-- "/yr'
+        : `${gaia.proper_motion_arcsec_yr} "/yr`;
+      document.getElementById('gaiaGMag').textContent = gaia?.phot_g_mean_mag == null
+        ? '--'
+        : gaia.phot_g_mean_mag;
+      document.getElementById('gaiaParallax').textContent = gaia?.parallax_mas == null
+        ? '-- mas'
+        : `${gaia.parallax_mas} mas`;
+      if (gaiaStatus) {
+        const isLive = gaia?.source === 'LIVE TAP';
+        const isBenchmark = gaia?.source === 'BENCHMARK';
+        gaiaStatus.textContent = isLive ? 'LIVE TAP' : isBenchmark ? 'BENCHMARK' : 'UNAVAILABLE';
+        gaiaStatus.className = isLive
+          ? 'px-1.5 py-0.5 rounded border border-emerald-500/40 bg-emerald-500/15 text-emerald-300 text-[10px]'
+          : isBenchmark
+          ? 'px-1.5 py-0.5 rounded border border-amber-500/40 bg-amber-500/15 text-amber-300 text-[10px]'
+          : 'px-1.5 py-0.5 rounded border border-slate-600 bg-slate-900 text-slate-300 text-[10px]';
+      }
       if (data.fits_metadata && data.fits_metadata.epoch1) {
         document.getElementById('metaE1').textContent = `${data.fits_metadata.epoch1.INSTRUME} (${data.fits_metadata.epoch1['DATE-OBS']})`;
         document.getElementById('metaE2').textContent = `${data.fits_metadata.epoch2.INSTRUME} (${data.fits_metadata.epoch2['DATE-OBS']})`;
         document.getElementById('metaRa').textContent = `${data.fits_metadata.epoch1.CRVAL1}°`;
         document.getElementById('metaDec').textContent = `${data.fits_metadata.epoch1.CRVAL2}°`;
+      }
+
+      const modeSelect = document.getElementById('epochModeSelect');
+      if (modeSelect) {
+        document.getElementById('modeDescText').textContent = modeSelect.value === 'modern_1996_wise'
+          ? 'Comparing real multi-epoch NASA SkyView plates: 1996 Digitized Sky Survey IR (DSS2 IR) vs 2010+ NASA WISE 3.4µm space telescope.'
+          : 'Comparing real multi-epoch NASA SkyView plates: 1953 Palomar Optical (DSS1 Red) vs 1996 Infrared Survey (DSS2 IR).';
       }
 
       setViewMode(viewMode);
@@ -471,17 +970,46 @@
 
     async function loadNasaTarget() {
       const target = document.getElementById('targetSelect').value;
+      const mode = document.getElementById('epochModeSelect').value;
       const loader = document.getElementById('loaderOverlay');
+      const scanButton = document.getElementById('scanBtn');
+      const requestId = ++scanRequestId;
+      if (activeScanController) activeScanController.abort();
+      const controller = new AbortController();
+      activeScanController = controller;
+      let timedOut = false;
+      const timeoutId = setTimeout(() => {
+        timedOut = true;
+        controller.abort();
+      }, 15000);
+
       loader.classList.remove('hidden');
+      scanButton.disabled = true;
+      scanButton.dataset.defaultLabel = scanButton.dataset.defaultLabel || scanButton.textContent.trim();
+      scanButton.textContent = 'Scanning...';
       try {
-        const res = await fetch(`/api/scan/nasa-live?target=${encodeURIComponent(target)}`);
+        const res = await fetch(`/api/scan/nasa-live?target=${encodeURIComponent(target)}&mode=${encodeURIComponent(mode)}`, {
+          signal: controller.signal
+        });
         if (!res.ok) throw new Error(await res.text());
         const data = await res.json();
-        applyScanPayload(data);
+        if (requestId === scanRequestId) applyScanPayload(data);
       } catch (err) {
-        alert('NASA SkyView FITS error: ' + err.message);
+        if (requestId === scanRequestId) {
+          if (timedOut) {
+            showError('NASA SkyView scan timed out after 15 seconds. Please retry or use cached FITS data.');
+          } else if (err.name !== 'AbortError') {
+            showError('NASA SkyView FITS error: ' + err.message);
+          }
+        }
       } finally {
-        loader.classList.add('hidden');
+        clearTimeout(timeoutId);
+        if (requestId === scanRequestId) {
+          activeScanController = null;
+          loader.classList.add('hidden');
+          scanButton.disabled = false;
+          scanButton.textContent = scanButton.dataset.defaultLabel;
+        }
       }
     }
 
@@ -489,7 +1017,7 @@
       const f1 = document.getElementById('fileE1').files[0];
       const f2 = document.getElementById('fileE2').files[0];
       if (!f1 || !f2) {
-        alert('Please select both Epoch 1 and Epoch 2 FITS/image files.');
+        showError('Please select both Epoch 1 and Epoch 2 FITS/image files before running analysis.');
         return;
       }
       const formData = new FormData();
@@ -504,13 +1032,17 @@
         const data = await res.json();
         applyScanPayload(data);
       } catch (err) {
-        alert('Upload error: ' + err.message);
+        showError('Custom FITS upload error: ' + err.message);
       } finally {
         loader.classList.add('hidden');
       }
     }
 
     document.addEventListener('DOMContentLoaded', () => {
+      if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+        isPaused = true;
+        document.getElementById('playPauseBtn').textContent = 'Play';
+      }
       loadNasaTarget();
     });
   </script>
