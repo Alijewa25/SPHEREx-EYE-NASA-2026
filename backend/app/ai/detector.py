@@ -83,6 +83,45 @@ class SPHERExDetector:
             raise ValueError("Invalid image format.")
         return cv2.resize(img, (600, 600))
 
+    def _mission_parameters(self, cls_name: str, temp_k: int, dist_au: float, arcsec_shift: float) -> dict:
+        if cls_name == "Planet X Candidate":
+            object_type = "Trans-Neptunian Ice Body / Planet X Candidate"
+            composition = {"water_ice_pct": 55, "silicate_pct": 15, "methane_pct": 30}
+            hazard = "LOW (Nominal)"
+            brief = (
+                "Maintain a nominal spacecraft trajectory; no immediate collision concern is indicated at the estimated "
+                f"{dist_au:.1f} AU distance. Prioritize multi-epoch astrometry and infrared confirmation before committing "
+                "spacecraft resources."
+            )
+        elif cls_name == "High-PM / TNO Candidate":
+            object_type = "Carbonaceous Near-Earth Asteroid / High-PM Candidate"
+            composition = {"water_ice_pct": 20, "silicate_pct": 65, "methane_pct": 15}
+            hazard = "MODERATE (Trajectory Monitor)"
+            brief = (
+                "Maintain a trajectory-monitoring watch and preserve maneuver margin while the high proper motion is confirmed. "
+                "Task navigation with a second epoch and refine the orbit before any close-approach planning."
+            )
+        else:
+            object_type = "Infrared-Excess Brown Dwarf Candidate"
+            composition = {"water_ice_pct": 30, "silicate_pct": 15, "methane_pct": 55}
+            hazard = "LOW (Nominal)"
+            brief = (
+                "Keep the spacecraft on the nominal flight plan while infrared excess and the candidate distance are verified. "
+                "Schedule a spectroscopic follow-up and do not allocate a maneuver without an independent astrometric solution."
+            )
+
+        distance_pc = dist_au / 206264.80624709636
+        tangential_velocity = 4.74047 * arcsec_shift * distance_pc
+        return {
+            "object_type": object_type,
+            "surface_temp_k": temp_k,
+            "distance_au": round(float(dist_au), 2),
+            "tangential_velocity_kms": round(float(tangential_velocity), 3),
+            "composition_breakdown": composition,
+            "hazard_level": hazard,
+            "astronaut_brief": brief,
+        }
+
     def detect_anomalies(self, epoch1: np.ndarray, epoch2: np.ndarray) -> dict:
         shift, _ = cv2.phaseCorrelate(np.float32(epoch1), np.float32(epoch2))
         M = np.float32([[1, 0, -shift[0]], [0, 1, -shift[1]]])
@@ -139,6 +178,7 @@ class SPHERExDetector:
                 else:
                     cls_name, conf, temp_k, dist_au = "Infrared Excess / Brown Dwarf", 87.4, 1120, 34.8
 
+                mission_parameters = self._mission_parameters(cls_name, temp_k, dist_au, arcsec_shift)
                 candidates.append({
                     "id": f"SPX-2026-{len(candidates)+1:02d}",
                     "classification": cls_name,
@@ -149,6 +189,7 @@ class SPHERExDetector:
                     "flux_variation_pct": flux_change,
                     "estimated_temp_k": temp_k,
                     "estimated_distance_au": dist_au,
+                    **mission_parameters,
                     "spectrum_102": self._generate_ir_spectrum(cls_name)
                 })
 
