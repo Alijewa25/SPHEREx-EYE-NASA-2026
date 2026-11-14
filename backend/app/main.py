@@ -43,7 +43,16 @@ def scan_real_nasa_data(target: str = "barnard_star", mode: str = "classic_1953_
         meta1 = bundle["meta1"]
         meta2 = bundle["meta2"]
 
-        result = detector.detect_anomalies(bundle["epoch1"], bundle["epoch2"])
+        result = detector.detect_anomalies(
+            bundle["epoch1"],
+            bundle["epoch2"],
+            header1=bundle["header1"],
+            header2=bundle["header2"],
+            survey1=m["survey1"],
+            survey2=m["survey2"],
+            fallback_years=m.get("fallback_years"),
+            data_source=f"skyview_fits:{target}",
+        )
         result["gaia_dr3"] = bundle["gaia_dr3"]
         result["data_source"] = f"NASA Goddard SkyView // {m['label']}"
         if "SYNTHETIC" in meta1.get("survey", "").upper() or "SYNTHETIC" in meta2.get("survey", "").upper():
@@ -52,6 +61,7 @@ def scan_real_nasa_data(target: str = "barnard_star", mode: str = "classic_1953_
         result["epoch1_survey"] = f"{m['survey1']} ({m['epoch1_year']})"
         result["epoch2_survey"] = f"{m['survey2']} ({m['epoch2_year']})"
         result["baseline"] = m["baseline"]
+        result["fov_arcmin"] = bundle["fov_arcmin"]
         result["target_key"] = target
         result["target_info"] = t["name"]
         result["ra"] = t["ra"]
@@ -63,6 +73,7 @@ def scan_real_nasa_data(target: str = "barnard_star", mode: str = "classic_1953_
                 "DATE-OBS": m["epoch1_year"],
                 "CRVAL1": meta1["crval1"],
                 "CRVAL2": meta1["crval2"],
+                "FOV_ARCMIN": bundle["fov_arcmin"],
             },
             "epoch2": {
                 "TELESCOP": "NASA-SKYVIEW",
@@ -70,6 +81,7 @@ def scan_real_nasa_data(target: str = "barnard_star", mode: str = "classic_1953_
                 "DATE-OBS": m["epoch2_year"],
                 "CRVAL1": meta2["crval1"],
                 "CRVAL2": meta2["crval2"],
+                "FOV_ARCMIN": bundle["fov_arcmin"],
             },
         }
         return result
@@ -87,7 +99,7 @@ async def scan_uploaded_epochs(
         bytes2 = await epoch2_file.read()
         img1 = detector.load_image_or_fits(bytes1, epoch1_file.filename)
         img2 = detector.load_image_or_fits(bytes2, epoch2_file.filename)
-        res = detector.detect_anomalies(img1, img2)
+        res = detector.detect_anomalies(img1, img2, data_source="custom_fits")
         res["data_source"] = f"Custom FITS Plate ({epoch1_file.filename} vs {epoch2_file.filename})"
         res["target_info"] = f"Custom Observation: {epoch1_file.filename}"
         res["ra"] = 0.0

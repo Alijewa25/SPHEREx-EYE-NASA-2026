@@ -1,13 +1,22 @@
 import cv2
 import numpy as np
 import base64
+from pathlib import Path
 from astropy.io import fits
+from astropy.wcs import WCS
 import io
+
+from .ds_integration import analyze_candidate, write_csv
+
+
+PROJECT_ROOT = Path(__file__).resolve().parents[3]
+CANDIDATES_CSV = PROJECT_ROOT / "candidates.csv"
 
 
 class SPHERExDetector:
     def __init__(self):
         self.wavelengths = np.round(np.linspace(0.75, 5.0, 102), 3).tolist()
+        self._csv_rows_by_source = {}
 
     def _encode_image_to_base64(self, img_array: np.ndarray) -> str:
         _, buffer = cv2.imencode('.png', img_array)
@@ -122,7 +131,17 @@ class SPHERExDetector:
             "astronaut_brief": brief,
         }
 
-    def detect_anomalies(self, epoch1: np.ndarray, epoch2: np.ndarray) -> dict:
+    def detect_anomalies(
+        self,
+        epoch1: np.ndarray,
+        epoch2: np.ndarray,
+        header1=None,
+        header2=None,
+        survey1="",
+        survey2="",
+        fallback_years=None,
+        data_source="synthetic",
+    ) -> dict:
         shift, _ = cv2.phaseCorrelate(np.float32(epoch1), np.float32(epoch2))
         M = np.float32([[1, 0, -shift[0]], [0, 1, -shift[1]]])
         epoch2_aligned = cv2.warpAffine(epoch2, M, (epoch2.shape[1], epoch2.shape[0]))
@@ -179,10 +198,45 @@ class SPHERExDetector:
                     cls_name, conf, temp_k, dist_au = "Infrared Excess / Brown Dwarf", 87.4, 1120, 34.8
 
                 mission_parameters = self._mission_parameters(cls_name, temp_k, dist_au, arcsec_shift)
+                spectrum_102 = self._generate_ir_spectrum(cls_name)
+                ds_fields = {
+                    "snr": None,
+                    "spectral_class": "",
+                    "confidence": None,
+                    "pm_arcsec_yr": None,
+                    "motion_arcsec": None,
+                    "review_status": "needs_review",
+                }
+                if header1 is not None and header2 is not None:
+                    try:
+                        wcs2 = WCS(header2) if header2.get("CTYPE1") and header2.get("CTYPE2") else None
+                        ds_fields = analyze_candidate(
+                            epoch1,
+                            epoch2,
+                            (x1, y1),
+                            (x2, y2),
+                            header1,
+                            header2,
+                            candidate_id=f"SPX-2026-{len(candidates)+1:02d}",
+                            survey1=survey1,
+                            survey2=survey2,
+                            spectrum=(
+                                np.asarray(self.wavelengths, dtype=float),
+                                np.asarray(spectrum_102, dtype=float),
+                                np.full(102, 0.03, dtype=float),
+                            ),
+                            wcs2=wcs2,
+                            data_source=data_source,
+                            fallback_years=fallback_years,
+                        )
+                    except (KeyError, TypeError, ValueError, IndexError) as exc:
+                        ds_fields["ds_error"] = str(exc)
+
                 candidates.append({
                     "id": f"SPX-2026-{len(candidates)+1:02d}",
                     "classification": cls_name,
                     "confidence": min(conf, 99.4),
+                    "detection_confidence": min(conf, 99.4),
                     "epoch1_pos": {"x": x1, "y": y1},
                     "epoch2_pos": {"x": x2, "y": y2},
                     "proper_motion_arcsec": arcsec_shift,
@@ -190,13 +244,30 @@ class SPHERExDetector:
                     "estimated_temp_k": temp_k,
                     "estimated_distance_au": dist_au,
                     **mission_parameters,
-                    "spectrum_102": self._generate_ir_spectrum(cls_name)
+                    **ds_fields,
+                    "spectrum_102": spectrum_102
                 })
 
-        candidates.sort(key=lambda c: (c["classification"] != "Planet X Candidate", -c["confidence"]))
+        candidates.sort(
+            key=lambda c: (
+                c["classification"] != "Planet X Candidate",
+                -c["detection_confidence"],
+            )
+        )
         candidates = candidates[:8]  # Top 8 highest-confidence detections for clean HUD display
         for i, c in enumerate(candidates):
             c["id"] = f"SPX-2026-{i+1:02d}"
+
+        if candidates:
+            self._csv_rows_by_source[data_source] = candidates
+            write_csv(
+                [
+                    row
+                    for source_rows in self._csv_rows_by_source.values()
+                    for row in source_rows
+                ],
+                str(CANDIDATES_CSV),
+            )
 
         return {
             "status": "success",

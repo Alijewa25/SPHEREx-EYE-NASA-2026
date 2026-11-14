@@ -608,7 +608,7 @@
             }">
             <div class="flex items-center justify-between mb-1">
               <span class="mono text-xs font-bold text-white">${c.id}</span>
-              <span class="mono text-[11px] px-1.5 py-0.5 rounded border ${badgeColor}">${c.confidence}% CONF</span>
+              <span class="mono text-[11px] px-1.5 py-0.5 rounded border ${badgeColor}">${formatCandidateConfidence(c.confidence ?? c.detection_confidence)}% CONF</span>
             </div>
             <div class="text-xs font-semibold text-cyan-300 mb-1.5">${c.classification}</div>
             <div class="grid grid-cols-3 gap-1 mono text-[11px] text-slate-300 border-t border-slate-800 pt-1.5">
@@ -634,6 +634,12 @@
 
     function formatTelemetryNumber(value, digits = 2) {
       return value == null || !Number.isFinite(Number(value)) ? '--' : Number(value).toFixed(digits);
+    }
+
+    function formatCandidateConfidence(value) {
+      const number = Number(value);
+      if (!Number.isFinite(number)) return '--';
+      return (number <= 1 ? number * 100 : number).toFixed(1);
     }
 
     function escapeHtml(value) {

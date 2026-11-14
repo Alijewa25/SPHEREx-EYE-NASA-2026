@@ -29,6 +29,20 @@ TARGETS = {
         "dec": 7.850,
         "radius": 0.25,
         "description": "Trans-Neptunian icy body search region with H2O/CH4 ice signatures."
+    },
+    "kapteyn_star": {
+        "name": "Kapteyn's Star",
+        "ra": 77.9192,
+        "dec": -45.0183,
+        "radius": 0.25,
+        "description": "Old, high-proper-motion M-dwarf benchmark for nearby stellar astrometry."
+    },
+    "proxima_cen": {
+        "name": "Proxima Centauri",
+        "ra": 217.4288,
+        "dec": -62.6794,
+        "radius": 0.25,
+        "description": "Nearest stellar neighbor and high-value proper-motion calibration target."
     }
 }
 
@@ -41,7 +55,8 @@ EPOCH_MODES = {
         "survey2": "DSS2 IR",
         "survey2_fallbacks": ["DSS2 IR"],
         "epoch2_year": "1996",
-        "baseline": "43 Years"
+        "baseline": "43 Years",
+        "fallback_years": 43.0
     },
     "modern_1996_wise": {
         "label": "Modern Infrared Mission (1996 DSS2 IR vs 2000s+ 2MASS/WISE IR)",
@@ -51,7 +66,8 @@ EPOCH_MODES = {
         "survey2": "2MASS-K",
         "survey2_fallbacks": ["WISE 3.4", "2MASS-K", "2MASS-H"],
         "epoch2_year": "2001+",
-        "baseline": "Modern Near-IR"
+        "baseline": "Modern Near-IR",
+        "fallback_years": 5.0
     }
 }
 
@@ -162,6 +178,10 @@ def _valid_cache_path(cache_path: str) -> str | None:
         try:
             with fits.open(cache_path, memmap=False) as hdul:
                 data = np.asarray(hdul[0].data, dtype=np.float64)
+                while data.ndim > 2:
+                    data = data[0]
+                if data.ndim != 2:
+                    raise ValueError("FITS image is not 2D")
                 finite = data[np.isfinite(data)]
                 if finite.size and float(np.nanmax(finite)) > float(np.nanmin(finite)):
                     return cache_path
@@ -169,16 +189,6 @@ def _valid_cache_path(cache_path: str) -> str | None:
             pass
         os.remove(cache_path)
 
-    legacy_path = os.path.join(LEGACY_CACHE_DIR, os.path.basename(cache_path))
-    if os.path.isfile(legacy_path) and os.path.getsize(legacy_path) > 2880:
-        try:
-            with fits.open(legacy_path, memmap=False) as hdul:
-                data = np.asarray(hdul[0].data, dtype=np.float64)
-                finite = data[np.isfinite(data)]
-                if finite.size and float(np.nanmax(finite)) > float(np.nanmin(finite)):
-                    return legacy_path
-        except (OSError, ValueError, TypeError):
-            pass
     return None
 
 
@@ -202,7 +212,8 @@ def _download_fits(ra: float, dec: float, surveys: list, size_deg: float, cache_
             if resp.status_code == 200 and resp.content.startswith(b"SIMPLE"):
                 with open(cache_path, "wb") as f:
                     f.write(resp.content)
-                return cache_path
+                if _valid_cache_path(cache_path):
+                    return cache_path
         except requests.Timeout as exc:
             raise ValueError(f"NASA SkyView survey timed out after 8 seconds: {survey}") from exc
         except requests.RequestException:
@@ -230,6 +241,8 @@ def _create_synthetic_primary(target_id: str, cache_path: str) -> str:
         "barnard_star": (230, 190),
         "pleiades_ir": (330, 365),
         "sedna_region": (455, 310),
+        "kapteyn_star": (175, 430),
+        "proxima_cen": (410, 220),
     }
     target_y, target_x = target_positions.get(target_id, (300, 300))
     target_sigma = 3.0
@@ -240,6 +253,15 @@ def _create_synthetic_primary(target_id: str, cache_path: str) -> str:
 
     header = fits.Header()
     header["SURVEY"] = "SYNTHETIC CALIBRATED PRIMARY"
+    header["DATE-OBS"] = "1953-09-23"
+    header["CRPIX1"] = 300.0
+    header["CRPIX2"] = 300.0
+    header["CRVAL1"] = 0.0
+    header["CRVAL2"] = 0.0
+    header["CDELT1"] = -0.25 / 600.0
+    header["CDELT2"] = 0.25 / 600.0
+    header["CTYPE1"] = "RA---TAN"
+    header["CTYPE2"] = "DEC--TAN"
     header["COMMENT"] = "Offline fallback generated because NASA SkyView was unavailable."
     fits.PrimaryHDU(data=np.clip(image, 0, 255).astype(np.float32), header=header).writeto(cache_path, overwrite=True)
     return cache_path
@@ -250,8 +272,14 @@ def _create_synthetic_ir_epoch(primary_path: str, fallback_path: str, target_id:
     if cached_path:
         return cached_path
 
+    if _valid_cache_path(primary_path) is None:
+        primary_path = _create_synthetic_primary(target_id, primary_path)
     with fits.open(primary_path) as hdul:
         primary_data = np.asarray(hdul[0].data, dtype=np.float32)
+        while primary_data.ndim > 2:
+            primary_data = primary_data[0]
+        if primary_data.ndim != 2:
+            raise ValueError("Primary FITS image is not 2D")
         header = hdul[0].header.copy()
 
     offsets = {
@@ -282,6 +310,7 @@ def _create_synthetic_ir_epoch(primary_path: str, fallback_path: str, target_id:
         -(x_grid ** 2 + y_grid ** 2) / (2 * target_sigma ** 2)
     )
     header["SURVEY"] = "SYNTHETIC IR FALLBACK"
+    header["DATE-OBS"] = "1996-11-02"
     header["HISTORY"] = "Derived from primary FITS with proper-motion offset and IR thermal noise."
     header["HISTORY"] = f"Applied pixel offset DY={offset_y}, DX={offset_x}."
     fits.PrimaryHDU(data=ir_data, header=header).writeto(fallback_path, overwrite=True)
@@ -290,8 +319,12 @@ def _create_synthetic_ir_epoch(primary_path: str, fallback_path: str, target_id:
 
 def _read_fits_data(fits_path: str):
     with fits.open(fits_path) as hdul:
-        data = hdul[0].data.astype(np.float64)
-        header = hdul[0].header
+        data = np.asarray(hdul[0].data, dtype=np.float64)
+        while data.ndim > 2:
+            data = data[0]
+        if data.ndim != 2:
+            raise ValueError(f"FITS image must be 2D, got {data.ndim}D")
+        header = hdul[0].header.copy()
         data = np.nan_to_num(data, nan=np.nanmedian(data))
 
         vmin, vmax = np.percentile(data, [1.0, 99.5])
@@ -308,10 +341,14 @@ def _read_fits_data(fits_path: str):
             "survey": str(header.get("SURVEY", "NASA SkyView")),
             "shape": f"{img_uint8.shape[1]} x {img_uint8.shape[0]} px"
         }
-        return img_uint8, meta
+        return img_uint8, meta, header
 
 
-def fetch_target_epochs(target_id: str, epoch_mode: str = "classic_1953_1996"):
+def fetch_target_epochs(
+    target_id: str,
+    epoch_mode: str = "classic_1953_1996",
+    fov_arcmin: float = 15.0,
+):
     target = TARGETS.get(target_id, TARGETS["barnard_star"])
     mode = EPOCH_MODES.get(epoch_mode, EPOCH_MODES["classic_1953_1996"])
 
@@ -321,22 +358,26 @@ def fetch_target_epochs(target_id: str, epoch_mode: str = "classic_1953_1996"):
     f1_path = os.path.join(CACHE_DIR, f"{target_id}_{s1_slug}.fits")
     f2_path = os.path.join(CACHE_DIR, f"{target_id}_{s2_slug}.fits")
 
+    if fov_arcmin <= 0:
+        raise ValueError("fov_arcmin must be greater than zero")
+    size_deg = fov_arcmin / 60.0
+
     try:
         f1_path = _download_fits(
-            target["ra"], target["dec"], mode["survey1_fallbacks"], target["radius"], f1_path
+            target["ra"], target["dec"], mode["survey1_fallbacks"], size_deg, f1_path
         )
     except ValueError:
         f1_path = _create_synthetic_primary(target_id, f1_path)
 
     try:
         f2_path = _download_fits(
-            target["ra"], target["dec"], mode["survey2_fallbacks"], target["radius"], f2_path
+            target["ra"], target["dec"], mode["survey2_fallbacks"], size_deg, f2_path
         )
     except ValueError:
         f2_path = _create_synthetic_ir_epoch(f1_path, f2_path, target_id)
 
-    img1, meta1 = _read_fits_data(f1_path)
-    img2, meta2 = _read_fits_data(f2_path)
+    img1, meta1, header1 = _read_fits_data(f1_path)
+    img2, meta2, header2 = _read_fits_data(f2_path)
     gaia_dr3 = _fetch_gaia_dr3(target_id, target["ra"], target["dec"])
 
     return {
@@ -346,5 +387,8 @@ def fetch_target_epochs(target_id: str, epoch_mode: str = "classic_1953_1996"):
         "epoch2": img2,
         "meta1": meta1,
         "meta2": meta2,
+        "header1": header1,
+        "header2": header2,
+        "fov_arcmin": fov_arcmin,
         "gaia_dr3": gaia_dr3
     }
