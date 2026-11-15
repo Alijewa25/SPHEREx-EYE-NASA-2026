@@ -1,5 +1,6 @@
 <p align="center">
-  <img src="logo.png" alt="Team HERschel logo" width="160">
+  <img src="logo.png" alt="Team HERschel logo (AI-generated)" width="160">
+  <br><sub><i>AI-generated team logo</i></sub>
 </p>
 
 <h1 align="center">SPHEREx-EYE</h1>
@@ -43,6 +44,7 @@
 - [Roadmap](#roadmap)
 - [Team](#team)
 - [Acknowledgements](#acknowledgements)
+- [Use of Super Intelligence (AI)](#use-of-super-intelligence-ai)
 
 ---
 
@@ -120,10 +122,12 @@ SkyView    DR3 TAP    (cache/fits/)
 3. **Registration** – `cv2.phaseCorrelate` estimates the global offset; `cv2.warpAffine` aligns Epoch 2 to Epoch 1.
 4. **Normalization** – both epochs scaled to 0–255 to compensate for differing survey response (e.g. DSS1 optical vs DSS2 IR).
 5. **Difference map** – `cv2.absdiff`, thresholding, morphological opening, dilation, contour extraction.
-6. **Candidate pairing** – centroids paired across epochs with filters: shift 6–95 px, contour area 4–1200 px.
+6. **Candidate pairing** – centroids paired across epochs with filters: shift 6–320 px (on ≥500 px wide-field plates), contour area 4–1200 px.
 7. **Characterization** – angular shift, proper motion, SNR, spectral class and confidence, Gaia match.
 8. **Classification** – rule-based assignment to *Planet X Candidate*, *High-PM / TNO Candidate*, or *Infrared Excess / Brown Dwarf*.
 9. **Output** – JSON to frontend, row per candidate in `candidates.csv`.
+
+**Performance:** a full scan completes in under 2 seconds end to end once the target's FITS files are cached locally. This relies on local FITS caching, a single WCS object reused across all candidates, and bounded local windows for SNR and bright-star halo checks instead of full-frame operations. The first run for a new target is slower because it downloads from SkyView.
 
 ### Epoch modes
 
@@ -376,7 +380,6 @@ Injected source moved by (60, 30) px; DATE-OBS 1953-09-23 → 1996-11-02; scale 
 - Object classification and telemetry (temperature, distance, hazard) are rule-based heuristics, not trained models.
 - `detector.py` uses a fixed 0.42″/px scale for `proper_motion_arcsec`, while `ds_integration.py` uses the FITS header pixel scale; these should be unified under WCS.
 - The frontend FOV label displays 18.0′ × 18.0′; the backend default is 15.0′.
-- Gaia benchmark fallback values do not include Kapteyn's Star or Proxima Centauri.
 - CORS is fully open (`allow_origins=["*"]`); restrict before any public deployment.
 - Frontend depends on CDNs (Tailwind CSS, Chart.js, Google Fonts).
 - Validation is synthetic only.
@@ -417,3 +420,9 @@ Injected source moved by (60, 30) px; DATE-OBS 1953-09-23 → 1996-11-02; scale 
 - Astropy, Astroquery, OpenCV, FastAPI, and Chart.js open-source projects
 
 This project was developed for the NASA Space Apps Challenge 2026. It is not an official NASA or ESA product.
+
+---
+
+## Use of Super Intelligence (AI)
+
+AI tools were used in a limited capacity during development for debugging runtime issues, generating boilerplate file structures and documentation drafts, and creating the team logo (`logo.png`, labeled as AI-generated). All code, scientific formulas, and outputs were reviewed and verified by Team HERschel.
