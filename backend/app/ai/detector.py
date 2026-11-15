@@ -152,6 +152,7 @@ class SPHERExDetector:
 
         diff = cv2.absdiff(e1_norm, e2_norm)
         _, thresh = cv2.threshold(diff, 32, 255, cv2.THRESH_BINARY)
+        thresh = thresh.astype(np.uint8, copy=False)
         kernel = np.ones((3, 3), np.uint8)
         thresh = cv2.dilate(cv2.morphologyEx(thresh, cv2.MORPH_OPEN, kernel), kernel, iterations=1)
 
@@ -174,6 +175,34 @@ class SPHERExDetector:
             elif val2 > val1 + 18:
                 e2_blobs.append((cx, cy, val2))
 
+        if not e1_blobs or not e2_blobs:
+            def bright_blobs(image):
+                threshold = max(160.0, float(np.percentile(image, 99.0)))
+                _, bright = cv2.threshold(image, threshold, 255, cv2.THRESH_BINARY)
+                bright = bright.astype(np.uint8, copy=False)
+                bright = cv2.dilate(bright, kernel, iterations=1)
+                bright_contours, _ = cv2.findContours(
+                    bright, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE
+                )
+                blobs = []
+                for blob in bright_contours:
+                    area = cv2.contourArea(blob)
+                    if not (2 <= area <= 500):
+                        continue
+                    moments = cv2.moments(blob)
+                    if moments["m00"] == 0:
+                        continue
+                    bx = int(moments["m10"] / moments["m00"])
+                    by = int(moments["m01"] / moments["m00"])
+                    brightness = float(
+                        image[max(0, by - 2):by + 3, max(0, bx - 2):bx + 3].mean()
+                    )
+                    blobs.append((bx, by, brightness))
+                return blobs
+
+            e1_blobs = bright_blobs(e1_norm)
+            e2_blobs = bright_blobs(e2_norm)
+
         candidates, used_e2 = [], set()
         for x1, y1, b1 in sorted(e1_blobs, key=lambda b: -b[2]):
             best_j, best_dist = None, 999.0
@@ -181,7 +210,8 @@ class SPHERExDetector:
                 if j in used_e2:
                     continue
                 dist = np.hypot(x2 - x1, y2 - y1)
-                if 6.0 <= dist <= 95.0 and dist < best_dist:
+                max_correspondence_px = 320.0 if epoch1.shape[1] >= 500 else 95.0
+                if 6.0 <= dist <= max_correspondence_px and dist < best_dist:
                     best_dist, best_j = dist, j
 
             if best_j is not None:
@@ -202,7 +232,7 @@ class SPHERExDetector:
                 ds_fields = {
                     "snr": None,
                     "spectral_class": "",
-                    "confidence": None,
+                    "spectral_confidence": None,
                     "pm_arcsec_yr": None,
                     "motion_arcsec": None,
                     "review_status": "needs_review",
@@ -210,7 +240,7 @@ class SPHERExDetector:
                 if header1 is not None and header2 is not None:
                     try:
                         wcs2 = WCS(header2) if header2.get("CTYPE1") and header2.get("CTYPE2") else None
-                        ds_fields = analyze_candidate(
+                        ds_result = analyze_candidate(
                             epoch1,
                             epoch2,
                             (x1, y1),
@@ -229,6 +259,14 @@ class SPHERExDetector:
                             data_source=data_source,
                             fallback_years=fallback_years,
                         )
+                        ds_fields.update({
+                            "snr": ds_result.get("snr"),
+                            "spectral_class": ds_result.get("spectral_class", ""),
+                            "spectral_confidence": ds_result.get("confidence"),
+                            "pm_arcsec_yr": ds_result.get("pm_arcsec_yr"),
+                            "motion_arcsec": ds_result.get("motion_arcsec"),
+                            "review_status": ds_result.get("review_status", "needs_review"),
+                        })
                     except (KeyError, TypeError, ValueError, IndexError) as exc:
                         ds_fields["ds_error"] = str(exc)
 
@@ -277,8 +315,23 @@ class SPHERExDetector:
             "anomalies_found": len(candidates),
             "candidates": candidates,
             "images": {
-                "epoch1": self._encode_image_to_base64(cv2.applyColorMap(e1_norm, cv2.COLORMAP_INFERNO)),
-                "epoch2": self._encode_image_to_base64(cv2.applyColorMap(e2_norm, cv2.COLORMAP_INFERNO)),
-                "difference_map": self._encode_image_to_base64(cv2.applyColorMap(diff, cv2.COLORMAP_VIRIDIS))
+                "epoch1": self._encode_image_to_base64(
+                    cv2.applyColorMap(
+                        np.clip(e1_norm, 0, 255).astype(np.uint8),
+                        cv2.COLORMAP_INFERNO,
+                    )
+                ),
+                "epoch2": self._encode_image_to_base64(
+                    cv2.applyColorMap(
+                        np.clip(e2_norm, 0, 255).astype(np.uint8),
+                        cv2.COLORMAP_INFERNO,
+                    )
+                ),
+                "difference_map": self._encode_image_to_base64(
+                    cv2.applyColorMap(
+                        np.clip(diff, 0, 255).astype(np.uint8),
+                        cv2.COLORMAP_VIRIDIS,
+                    )
+                ),
             }
         }
