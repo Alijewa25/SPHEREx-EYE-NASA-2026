@@ -285,8 +285,8 @@
         </div>
 
         <div class="relative w-full h-full">
-          <img id="imgBase" src="" alt="Epoch 1 astronomical plate" class="w-full h-full object-contain select-none" />
-          <img id="imgOverlay" src="" alt="Epoch 2 astronomical plate" class="w-full h-full object-contain absolute inset-0 opacity-0 transition-opacity duration-150 select-none" />
+          <img id="imgBase" src="" alt="Epoch 1 astronomical plate" class="hidden w-full h-full object-contain select-none" />
+          <img id="imgOverlay" src="" alt="Epoch 2 astronomical plate" class="hidden w-full h-full object-contain absolute inset-0 opacity-0 transition-opacity duration-150 select-none" />
 
           <svg id="wcsGridSvg" viewBox="0 0 600 600" class="w-full h-full absolute inset-0 pointer-events-none opacity-50" aria-hidden="true">
             <g stroke="#38bdf8" stroke-width="0.6" stroke-dasharray="3 3">
@@ -511,29 +511,42 @@
       const sliderLabel = document.getElementById('sliderLabel');
       const slider = document.getElementById('dynamicSlider');
       const badge = document.getElementById('activeEpochBadge');
+      const setImageSource = (image, source) => {
+        image.classList.add('hidden');
+        image.onload = () => image.classList.remove('hidden');
+        image.onerror = () => image.classList.add('hidden');
+        if (typeof source !== 'string' || !source.startsWith('data:image/')) {
+          image.removeAttribute('src');
+          return;
+        }
+        image.src = source;
+        if (image.complete && image.naturalWidth > 0) image.classList.remove('hidden');
+      };
+      imgBase.classList.add('hidden');
+      imgOverlay.classList.add('hidden');
 
       if (mode === 'blink') {
         sliderBar.style.display = 'flex';
         transportGroup.style.display = 'flex';
         slider.min = 200; slider.max = 1500; slider.value = blinkIntervalMs;
         sliderLabel.textContent = `Speed: ${blinkIntervalMs} ms`;
-        imgBase.src = currentData.images.epoch1;
-        imgOverlay.src = currentData.images.epoch2;
+        setImageSource(imgBase, currentData.images.epoch1);
+        setImageSource(imgOverlay, currentData.images.epoch2);
         renderBlinkFrame();
         if (!isPaused) startBlinkLoop();
       } else if (mode === 'epoch1') {
         sliderBar.style.display = 'none';
-        imgBase.src = currentData.images.epoch1;
+        setImageSource(imgBase, currentData.images.epoch1);
         imgOverlay.style.opacity = 0;
         badge.textContent = `EPOCH 1 (${e1Label.toUpperCase()})`;
       } else if (mode === 'epoch2') {
         sliderBar.style.display = 'none';
-        imgBase.src = currentData.images.epoch2;
+        setImageSource(imgBase, currentData.images.epoch2);
         imgOverlay.style.opacity = 0;
         badge.textContent = `EPOCH 2 (${e2Label.toUpperCase()})`;
       } else if (mode === 'diff') {
         sliderBar.style.display = 'none';
-        imgBase.src = currentData.images.difference_map;
+        setImageSource(imgBase, currentData.images.difference_map);
         imgOverlay.style.opacity = 0;
         badge.textContent = 'PIXEL RESIDUAL HEATMAP';
       } else if (mode === 'blend') {
@@ -541,8 +554,8 @@
         transportGroup.style.display = 'none';
         slider.min = 0; slider.max = 100; slider.value = 50;
         sliderLabel.textContent = 'Mix: 50% E2';
-        imgBase.src = currentData.images.epoch1;
-        imgOverlay.src = currentData.images.epoch2;
+        setImageSource(imgBase, currentData.images.epoch1);
+        setImageSource(imgOverlay, currentData.images.epoch2);
         imgOverlay.style.opacity = 0.5;
         badge.textContent = 'CROSS-EPOCH OVERLAY';
       }
@@ -1008,7 +1021,7 @@
       const timeoutId = setTimeout(() => {
         timedOut = true;
         controller.abort();
-      }, 15000);
+      }, 25000);
 
       loader.classList.remove('hidden');
       scanButton.disabled = true;

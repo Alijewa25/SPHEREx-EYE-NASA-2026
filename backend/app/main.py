@@ -54,6 +54,8 @@ def scan_real_nasa_data(target: str = "barnard_star", mode: str = "classic_1953_
             data_source=f"skyview_fits:{target}",
         )
         result["gaia_dr3"] = bundle["gaia_dr3"]
+        result["epoch1_image"] = result["images"]["epoch1"]
+        result["epoch2_image"] = result["images"]["epoch2"]
         result["data_source"] = f"NASA Goddard SkyView // {m['label']}"
         if "SYNTHETIC" in meta1.get("survey", "").upper() or "SYNTHETIC" in meta2.get("survey", "").upper():
             result["data_source"] = f"Calibrated Offline Fallback // {m['label']}"
