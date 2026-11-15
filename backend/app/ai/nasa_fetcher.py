@@ -110,7 +110,11 @@ GAIA_FALLBACKS = {
 
 def _gaia_benchmark(target_id: str):
     benchmark = GAIA_FALLBACKS.get(target_id, GAIA_FALLBACKS["barnard_star"])
-    return dict(benchmark)
+    result = dict(benchmark)
+    for key in ("phot_g_mean_mag", "parallax_mas"):
+        if result[key] is not None:
+            result[key] = round(float(result[key]), 2)
+    return result
 
 
 def _fetch_gaia_dr3(target_id: str, ra: float, dec: float):
