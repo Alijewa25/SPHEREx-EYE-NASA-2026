@@ -105,6 +105,26 @@ GAIA_FALLBACKS = {
         "match_distance_arcsec": None,
         "source": "BENCHMARK",
     },
+    "kapteyn_star": {
+        "source_id": "benchmark:kapteyn_star",
+        "pmra_mas_yr": 650.0,
+        "pmdec_mas_yr": -573.0,
+        "proper_motion_arcsec_yr": 0.866,
+        "parallax_mas": 255.0,
+        "phot_g_mean_mag": 8.86,
+        "match_distance_arcsec": None,
+        "source": "BENCHMARK",
+    },
+    "proxima_cen": {
+        "source_id": "benchmark:proxima_cen",
+        "pmra_mas_yr": -3775.0,
+        "pmdec_mas_yr": 765.0,
+        "proper_motion_arcsec_yr": 3.852,
+        "parallax_mas": 768.7,
+        "phot_g_mean_mag": 11.13,
+        "match_distance_arcsec": None,
+        "source": "BENCHMARK",
+    },
 }
 
 
@@ -122,7 +142,7 @@ def _fetch_gaia_dr3(target_id: str, ra: float, dec: float):
         return dict(GAIA_CACHE[target_id])
 
     fallback = _gaia_benchmark(target_id)
-    if target_id == "barnard_star":
+    if target_id in GAIA_FALLBACKS:
         GAIA_CACHE[target_id] = dict(fallback)
         return dict(fallback)
 
@@ -147,7 +167,7 @@ def _fetch_gaia_dr3(target_id: str, ra: float, dec: float):
                 "FORMAT": "json",
                 "QUERY": " ".join(query.split()),
             },
-            timeout=15,
+            timeout=3.5,
         )
         response.raise_for_status()
         rows = response.json().get("data", [])
@@ -212,14 +232,14 @@ def _download_fits(ra: float, dec: float, surveys: list, size_deg: float, cache_
                 "Size": str(size_deg),
                 "Sampler": "LI"
             }
-            resp = requests.get(SKYVIEW_URL, params=params, timeout=8)
+            resp = requests.get(SKYVIEW_URL, params=params, timeout=3.5)
             if resp.status_code == 200 and resp.content.startswith(b"SIMPLE"):
                 with open(cache_path, "wb") as f:
                     f.write(resp.content)
                 if _valid_cache_path(cache_path):
                     return cache_path
         except requests.Timeout as exc:
-            raise ValueError(f"NASA SkyView survey timed out after 8 seconds: {survey}") from exc
+            raise ValueError(f"NASA SkyView survey timed out after 3.5 seconds: {survey}") from exc
         except requests.RequestException:
             continue
 
