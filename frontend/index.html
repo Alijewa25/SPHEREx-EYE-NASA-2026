@@ -85,6 +85,9 @@
           class="px-3 py-1.5 rounded-lg bg-slate-900 hover:bg-slate-800 border border-slate-700 text-slate-200 transition">
           ? How it works
         </button>
+        <button type="button" onclick="openMissionReport()" class="px-3 py-1.5 rounded-lg bg-cyan-500/15 hover:bg-cyan-500/25 border border-cyan-400/50 text-cyan-200 transition">
+          Mission Report (PDF)
+        </button>
         <div class="hidden sm:flex flex-col items-end">
           <span class="text-slate-400 text-[10px]">MISSION UTC</span>
           <span id="utcClock" class="text-cyan-300 font-semibold">--:--:-- UTC</span>
@@ -155,6 +158,8 @@
           <option value="barnard_star">Barnard's Star (RA 269.45°, DEC +4.69°)</option>
           <option value="pleiades_ir">M45 Pleiades Nebula (RA 56.75°, DEC +24.11°)</option>
           <option value="sedna_region">90377 Sedna Sector (RA 54.12°, DEC +7.85°)</option>
+          <option value="kapteyn_star">Kapteyn's Star (RA 77.92°, DEC -45.02°)</option>
+          <option value="proxima_cen">Proxima Centauri (RA 217.43°, DEC -62.68°)</option>
         </select>
 
         <label for="epochModeSelect" class="block label mb-1">Temporal Epoch Baseline</label>
@@ -325,10 +330,10 @@
           </div>
           <span id="anomalyCountBadge" class="mono text-xs font-bold px-2 py-0.5 rounded bg-orange-500/20 text-orange-300 border border-orange-500/40">0 OBJECTS</span>
         </div>
-        <div id="candidatesList" class="space-y-2.5 max-h-[260px] overflow-y-auto pr-1"></div>
+        <div id="detectionsList" class="space-y-2.5 max-h-[260px] overflow-y-auto pr-1"></div>
       </section>
 
-      <section class="hud-panel rounded-xl p-4">
+      <section class="hud-panel rounded-xl p-4 flex-none">
         <div class="flex items-center justify-between mb-1">
           <div class="flex items-center gap-2">
             <span class="step-num mono">4</span>
@@ -372,6 +377,8 @@
               <div class="flex justify-between gap-3"><span class="text-slate-400">TANGENTIAL VELOCITY</span><span id="dossierVelocity" class="text-right text-white">--</span></div>
               <div class="flex justify-between gap-3"><span class="text-slate-400">SURFACE TEMP</span><span id="dossierTemperature" class="text-right text-white">--</span></div>
               <div class="flex justify-between gap-3"><span class="text-slate-400">DISTANCE</span><span id="dossierDistance" class="text-right text-white">--</span></div>
+              <div class="flex justify-between gap-3"><span class="text-slate-400">DS VALIDATION</span><span id="dossierDsStatus" class="text-right text-white">--</span></div>
+              <div class="flex justify-between gap-3"><span class="text-slate-400">DS SNR</span><span id="dossierDsSnr" class="text-right text-white">--</span></div>
             </div>
           </section>
 
@@ -585,7 +592,7 @@
     }
 
     function renderCandidates(candidates) {
-      const container = document.getElementById('candidatesList');
+      const container = document.getElementById('detectionsList');
       document.getElementById('anomalyCountBadge').textContent = `${candidates.length} OBJECTS`;
 
       if (!candidates.length) {
@@ -680,6 +687,11 @@
       document.getElementById('dossierVelocity').textContent = `${formatTelemetryNumber(velocity, 3)} km/s`;
       document.getElementById('dossierTemperature').textContent = `${formatTelemetryNumber(temperature, 0)} K`;
       document.getElementById('dossierDistance').textContent = `${formatTelemetryNumber(distance)} AU`;
+      const dsStatus = candidate.review_status || 'needs_review';
+      const dsSnr = candidate.snr;
+      document.getElementById('dossierDsStatus').textContent =
+        `${dsStatus}${candidate.spectral_class ? ` // ${candidate.spectral_class}` : ''}`;
+      document.getElementById('dossierDsSnr').textContent = formatTelemetryNumber(dsSnr, 1);
       document.getElementById('dossierBrief').textContent = candidate.astronaut_brief || 'Mission brief unavailable.';
       setComposition('dossierWater', composition.water_ice_pct);
       setComposition('dossierSilicate', composition.silicate_pct);
@@ -706,6 +718,15 @@
 
     function closeDossier() {
       document.getElementById('dossierModal').classList.add('hidden');
+    }
+
+    function openMissionReport() {
+      if (!currentData?.candidates?.length) {
+        showError('No detected candidate is available for a mission report yet.');
+        return;
+      }
+      openDossier(selectedCandidateIdx);
+      printMissionReport();
     }
 
     function buildTelemetryPackage() {
@@ -938,10 +959,10 @@
         : `${gaia.proper_motion_arcsec_yr} "/yr`;
       document.getElementById('gaiaGMag').textContent = gaia?.phot_g_mean_mag == null
         ? '--'
-        : gaia.phot_g_mean_mag;
+        : formatTelemetryNumber(gaia.phot_g_mean_mag, 2);
       document.getElementById('gaiaParallax').textContent = gaia?.parallax_mas == null
         ? '-- mas'
-        : `${gaia.parallax_mas} mas`;
+        : `${formatTelemetryNumber(gaia.parallax_mas, 2)} mas`;
       if (gaiaStatus) {
         const isLive = gaia?.source === 'LIVE TAP';
         const isBenchmark = gaia?.source === 'BENCHMARK';
