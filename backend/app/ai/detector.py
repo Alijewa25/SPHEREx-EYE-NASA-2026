@@ -203,6 +203,13 @@ class SPHERExDetector:
             e1_blobs = bright_blobs(e1_norm)
             e2_blobs = bright_blobs(e2_norm)
 
+        wcs2 = None
+        if header2 is not None and header2.get("CTYPE1") and header2.get("CTYPE2"):
+            try:
+                wcs2 = WCS(header2)
+            except (KeyError, TypeError, ValueError):
+                wcs2 = None
+
         candidates, used_e2 = [], set()
         for x1, y1, b1 in sorted(e1_blobs, key=lambda b: -b[2]):
             best_j, best_dist = None, 999.0
@@ -237,38 +244,6 @@ class SPHERExDetector:
                     "motion_arcsec": None,
                     "review_status": "needs_review",
                 }
-                if header1 is not None and header2 is not None:
-                    try:
-                        wcs2 = WCS(header2) if header2.get("CTYPE1") and header2.get("CTYPE2") else None
-                        ds_result = analyze_candidate(
-                            epoch1,
-                            epoch2,
-                            (x1, y1),
-                            (x2, y2),
-                            header1,
-                            header2,
-                            candidate_id=f"SPX-2026-{len(candidates)+1:02d}",
-                            survey1=survey1,
-                            survey2=survey2,
-                            spectrum=(
-                                np.asarray(self.wavelengths, dtype=float),
-                                np.asarray(spectrum_102, dtype=float),
-                                np.full(102, 0.03, dtype=float),
-                            ),
-                            wcs2=wcs2,
-                            data_source=data_source,
-                            fallback_years=fallback_years,
-                        )
-                        ds_fields.update({
-                            "snr": ds_result.get("snr"),
-                            "spectral_class": ds_result.get("spectral_class", ""),
-                            "spectral_confidence": ds_result.get("confidence"),
-                            "pm_arcsec_yr": ds_result.get("pm_arcsec_yr"),
-                            "motion_arcsec": ds_result.get("motion_arcsec"),
-                            "review_status": ds_result.get("review_status", "needs_review"),
-                        })
-                    except (KeyError, TypeError, ValueError, IndexError) as exc:
-                        ds_fields["ds_error"] = str(exc)
 
                 candidates.append({
                     "id": f"SPX-2026-{len(candidates)+1:02d}",
@@ -295,6 +270,42 @@ class SPHERExDetector:
         candidates = candidates[:8]  # Top 8 highest-confidence detections for clean HUD display
         for i, c in enumerate(candidates):
             c["id"] = f"SPX-2026-{i+1:02d}"
+
+        if header1 is not None and header2 is not None:
+            for candidate in candidates:
+                try:
+                    x1, y1 = candidate["epoch1_pos"]["x"], candidate["epoch1_pos"]["y"]
+                    x2, y2 = candidate["epoch2_pos"]["x"], candidate["epoch2_pos"]["y"]
+                    spectrum_102 = candidate["spectrum_102"]
+                    ds_result = analyze_candidate(
+                        epoch1,
+                        epoch2,
+                        (x1, y1),
+                        (x2, y2),
+                        header1,
+                        header2,
+                        candidate_id=candidate["id"],
+                        survey1=survey1,
+                        survey2=survey2,
+                        spectrum=(
+                            np.asarray(self.wavelengths, dtype=float),
+                            np.asarray(spectrum_102, dtype=float),
+                            np.full(102, 0.03, dtype=float),
+                        ),
+                        wcs2=wcs2,
+                        data_source=data_source,
+                        fallback_years=fallback_years,
+                    )
+                    candidate.update({
+                        "snr": ds_result.get("snr"),
+                        "spectral_class": ds_result.get("spectral_class", ""),
+                        "spectral_confidence": ds_result.get("confidence"),
+                        "pm_arcsec_yr": ds_result.get("pm_arcsec_yr"),
+                        "motion_arcsec": ds_result.get("motion_arcsec"),
+                        "review_status": ds_result.get("review_status", "needs_review"),
+                    })
+                except (KeyError, TypeError, ValueError, IndexError) as exc:
+                    candidate["ds_error"] = str(exc)
 
         if candidates:
             self._csv_rows_by_source[data_source] = candidates

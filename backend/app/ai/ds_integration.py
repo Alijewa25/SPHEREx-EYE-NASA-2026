@@ -65,11 +65,15 @@ def near_bright_star(image, x, y, radius=20, core=3, bright_factor=20.0):
     Belə namizəd "needs_review" olaraq işarələnir.
     """
     img = np.asarray(image, float)
-    yy, xx = np.indices(img.shape)
-    r = np.hypot(xx - x, yy - y)
-    bkg = np.nanmedian(img[(r > radius) & (r <= 2 * radius)])
-    cand = np.nanmax(img[r <= core]) - bkg
-    around = img[(r > core) & (r <= radius)]
+    margin = radius * 2
+    x0, x1 = max(0, int(x - margin)), min(img.shape[1], int(x + margin + 1))
+    y0, y1 = max(0, int(y - margin)), min(img.shape[0], int(y + margin + 1))
+    local = img[y0:y1, x0:x1]
+    yy, xx = np.indices(local.shape)
+    r = np.hypot(xx + x0 - x, yy + y0 - y)
+    bkg = np.nanmedian(local[(r > radius) & (r <= 2 * radius)])
+    cand = np.nanmax(local[r <= core]) - bkg
+    around = local[(r > core) & (r <= radius)]
     if around.size == 0 or cand <= 0:
         return False
     return bool(np.nanmax(around) - bkg > bright_factor * cand)

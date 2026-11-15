@@ -176,10 +176,15 @@ def snr_peak(image, x, y, r_in=8, r_out=12, r_peak=2):
     Pik: (x, y) ətrafında r_peak piksel daxilindəki ən parlaq piksel.
     """
     img = np.asarray(image, float)
-    yy, xx = np.indices(img.shape)
-    r = np.hypot(xx - x, yy - y)
-    ann_vals = img[(r >= r_in) & (r <= r_out) & np.isfinite(img)]
-    core = img[(r <= r_peak) & np.isfinite(img)]
+    margin = r_out + 1
+    x0, x1 = max(0, int(x - margin)), min(img.shape[1], int(x + margin + 1))
+    y0, y1 = max(0, int(y - margin)), min(img.shape[0], int(y + margin + 1))
+    local = img[y0:y1, x0:x1]
+    yy, xx = np.indices(local.shape)
+    r = np.hypot(xx + x0 - x, yy + y0 - y)
+    finite = np.isfinite(local)
+    ann_vals = local[(r >= r_in) & (r <= r_out) & finite]
+    core = local[(r <= r_peak) & finite]
     if ann_vals.size < 10 or core.size == 0:
         return float("nan")
     med, std = np.median(ann_vals), ann_vals.std()
