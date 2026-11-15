@@ -1,18 +1,9 @@
-"""
-SPHEREx-EYE | Data Science modulu
----------------------------------
-1) classify_candidate  -> 102 kanallı spektrə görə su buzu / metan / silikat təyini
-2) candidate_snr       -> real FITS kadrında namizəd obyektin siqnal-küy nisbəti
-3) detection_metrics   -> dəqiqlik (precision), tutma (recall), F1
-
-Yalnız numpy lazımdır.
-"""
 import numpy as np
 
-# ---------------------------------------------------------------
-# SPHEREx-in 102 kanalı: 6 zolaq x 17 kanal (0.75-5.00 µm)
-# (zolağın başlanğıcı, sonu, ayırdetmə gücü R) - təxmini dəyərlərdir
-# ---------------------------------------------------------------
+
+
+
+
 _SPHEREX_BANDS = [
     (0.75, 1.11, 41), (1.11, 1.64, 41), (1.64, 2.42, 41),
     (2.42, 3.82, 35), (3.82, 4.42, 110), (4.42, 5.00, 130),
@@ -20,7 +11,7 @@ _SPHEREX_BANDS = [
 
 
 def spherex_wavelengths():
-    """102 kanalın mərkəzi dalğa uzunluqları (µm)."""
+
     centers = []
     for lo, hi, _ in _SPHEREX_BANDS:
         edges = np.geomspace(lo, hi, 18)
@@ -28,10 +19,10 @@ def spherex_wavelengths():
     return np.concatenate(centers)
 
 
-# ---------------------------------------------------------------
-# Udulma zolaqları: (maddə, zolaq, sol çiyin, sağ çiyin)  - µm
-# Çiyinlər kontinuumu (fon əyrisini) müəyyən etmək üçündür.
-# ---------------------------------------------------------------
+
+
+
+
 FEATURES = {
     "H2O_1.5":    ("H2O",      (1.44, 1.62), (1.25, 1.35), (1.80, 1.88)),
     "H2O_2.0":    ("H2O",      (1.95, 2.10), (1.80, 1.88), (2.15, 2.22)),
@@ -39,8 +30,8 @@ FEATURES = {
     "CH4_1.72":   ("CH4",      (1.69, 1.75), (1.64, 1.67), (1.77, 1.79)),
     "CH4_2.32":   ("CH4",      (2.28, 2.38), (2.20, 2.25), (2.45, 2.50)),
     "CH4_3.32":   ("CH4",      (3.28, 3.38), (3.20, 3.24), (3.45, 3.55)),
-    # Silikatın əsas zolağı ~9.7 µm-dir (SPHEREx aralığından kənar). Burada yalnız
-    # Fe-silikatın zəif 1 µm zolağı var, ona görə nəticə "zəif işarə" sayılmalıdır.
+
+
     "SIL_1.0":    ("silikat",  (0.90, 1.05), (0.75, 0.82), (1.20, 1.30)),
     "CO2_4.27":   ("CO2",      (4.22, 4.32), (4.05, 4.15), (4.40, 4.50)),
     "CO_4.67":    ("CO",       (4.64, 4.70), (4.52, 4.58), (4.80, 4.90)),
@@ -57,13 +48,13 @@ LABELS = {
 
 
 def _estimate_err(flux):
-    """Xəta verilməyibsə, qonşu kanalların fərqindən küyü qiymətləndirir."""
+
     d = np.diff(flux)
     return np.full_like(flux, 1.4826 * np.median(np.abs(d - np.median(d))) / np.sqrt(2) + 1e-12)
 
 
 def band_depth(wl, flux, err, band, left, right):
-    """Bir zolağın dərinliyi və əhəmiyyəti (sigma). Kanal yoxdursa None qaytarır."""
+
     mb = (wl >= band[0]) & (wl <= band[1])
     ml = (wl >= left[0]) & (wl <= left[1])
     mr = (wl >= right[0]) & (wl <= right[1])
@@ -72,7 +63,7 @@ def band_depth(wl, flux, err, band, left, right):
 
     xl, yl = wl[ml].mean(), flux[ml].mean()
     xr, yr = wl[mr].mean(), flux[mr].mean()
-    cont = yl + (yr - yl) * (wl[mb] - xl) / (xr - xl)   # xətti kontinuum
+    cont = yl + (yr - yl) * (wl[mb] - xl) / (xr - xl)
     if np.any(cont <= 0):
         return None
 
@@ -89,15 +80,7 @@ def band_depth(wl, flux, err, band, left, right):
 
 def classify_candidate(wavelengths_um, flux, flux_err=None,
                        min_sigma=3.0, min_depth=0.03):
-    """
-    Namizəd obyektin spektrini sinifləndirir.
 
-    wavelengths_um : 0.75-5.00 µm aralığında dalğa uzunluqları (102 kanal)
-    flux           : hər kanaldakı parlaqlıq
-    flux_err       : xəta (verilməsə özü qiymətləndirir)
-
-    Qaytarır: {'label', 'class', 'confidence', 'scores', 'bands', 'slope'}
-    """
     wl = np.asarray(wavelengths_um, float)
     fl = np.asarray(flux, float)
     err = _estimate_err(fl) if flux_err is None else np.asarray(flux_err, float)
@@ -118,7 +101,7 @@ def classify_candidate(wavelengths_um, flux, flux_err=None,
         if found:
             scores[mat] += sig
 
-    # Silikatın 1 µm zolağı su buzu ilə qarışmasın: su buzu güclüdürsə silikat balını azalt
+
     if scores["H2O"] > scores["silikat"]:
         scores["silikat"] *= 0.5
 
@@ -129,25 +112,22 @@ def classify_candidate(wavelengths_um, flux, flux_err=None,
         cls = max(scores, key=scores.get)
         conf = scores[cls] / total
 
-    # Kontinuumun meyli (qırmızı / neytral)
+
     lo = fl[(wl > 0.75) & (wl < 1.2)].mean()
     hi = fl[(wl > 2.0) & (wl < 2.6)].mean()
     slope = float(np.log(hi / lo)) if lo > 0 and hi > 0 else float("nan")
 
     return {"class": cls, "label": LABELS[cls], "confidence": round(float(conf), 3),
-            "spectral_source": "model",   # ölçmə deyil, model əsaslı sinifləndirmə
+            "spectral_source": "model",
             "scores": {k: round(float(v), 2) for k, v in scores.items()},
             "bands": bands, "slope": round(slope, 3)}
 
 
-# ---------------------------------------------------------------
-# Gün 2: real FITS kadrlarında SNR və dəqiqlik
-# ---------------------------------------------------------------
+
+
+
 def candidate_snr(image, x, y, r_ap=4, r_in=8, r_out=12):
-    """
-    Aperture fotometriya ilə SNR.
-    (x, y) - obyektin mərkəzi (piksel). Fon halqa (r_in-r_out) ilə təyin olunur.
-    """
+
     img = np.asarray(image, float)
     yy, xx = np.indices(img.shape)
     r = np.hypot(xx - x, yy - y)
@@ -157,7 +137,7 @@ def candidate_snr(image, x, y, r_ap=4, r_in=8, r_out=12):
     if ap.sum() == 0 or ann_vals.size < 10:
         return {"snr": float("nan")}
 
-    # Halqada parlaq ulduzları kənarlaşdırmaq üçün 3-sigma kəsmə
+
     med, std = np.median(ann_vals), ann_vals.std()
     ann_vals = ann_vals[np.abs(ann_vals - med) < 3 * std]
     bkg, noise = ann_vals.mean(), ann_vals.std()
@@ -170,11 +150,7 @@ def candidate_snr(image, x, y, r_ap=4, r_in=8, r_out=12):
 
 
 def snr_peak(image, x, y, r_in=8, r_out=12, r_peak=2):
-    """
-    Komandanın razılaşdırdığı SNR tərifi:
-        SNR = (pik - fon_median) / fon_std
-    Pik: (x, y) ətrafında r_peak piksel daxilindəki ən parlaq piksel.
-    """
+
     img = np.asarray(image, float)
     margin = r_out + 1
     x0, x1 = max(0, int(x - margin)), min(img.shape[1], int(x + margin + 1))
@@ -188,16 +164,12 @@ def snr_peak(image, x, y, r_in=8, r_out=12, r_peak=2):
     if ann_vals.size < 10 or core.size == 0:
         return float("nan")
     med, std = np.median(ann_vals), ann_vals.std()
-    ann_vals = ann_vals[np.abs(ann_vals - med) < 3 * std]   # parlaq qonşuları at
+    ann_vals = ann_vals[np.abs(ann_vals - med) < 3 * std]
     return float((core.max() - np.median(ann_vals)) / (ann_vals.std() + 1e-12))
 
 
 def detection_metrics(detected_xy, truth_xy, match_radius=5.0):
-    """
-    Tapılan obyektləri məlum (həqiqi) obyektlərlə müqayisə edir.
-    detected_xy, truth_xy: [(x, y), ...]
-    Qaytarır: precision, recall, F1, TP, FP, FN
-    """
+
     det = [tuple(p) for p in detected_xy]
     tru = [tuple(p) for p in truth_xy]
     used, tp = set(), 0
@@ -220,9 +192,9 @@ def detection_metrics(detected_xy, truth_xy, match_radius=5.0):
             "f1": round(f1, 3), "TP": tp, "FP": fp, "FN": fn}
 
 
-# ---------------------------------------------------------------
-# Sınaq üçün sintetik spektr (yalnız kodu yoxlamaq üçün, real data DEYİL)
-# ---------------------------------------------------------------
+
+
+
 def _demo_spectrum(kind, noise=0.01, seed=0):
     rng = np.random.default_rng(seed)
     wl = spherex_wavelengths()

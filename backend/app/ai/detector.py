@@ -146,7 +146,6 @@ class SPHERExDetector:
         M = np.float32([[1, 0, -shift[0]], [0, 1, -shift[1]]])
         epoch2_aligned = cv2.warpAffine(epoch2, M, (epoch2.shape[1], epoch2.shape[0]))
 
-        # Normalize local background contrast between optical (DSS1) and infrared (DSS2 IR)
         e1_norm = cv2.normalize(epoch1, None, 0, 255, cv2.NORM_MINMAX)
         e2_norm = cv2.normalize(epoch2_aligned, None, 0, 255, cv2.NORM_MINMAX)
 
@@ -267,7 +266,7 @@ class SPHERExDetector:
                 -c["detection_confidence"],
             )
         )
-        candidates = candidates[:8]  # Top 8 highest-confidence detections for clean HUD display
+        candidates = candidates[:8]
         for i, c in enumerate(candidates):
             c["id"] = f"SPX-2026-{i+1:02d}"
 

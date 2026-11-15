@@ -1,11 +1,3 @@
-"""
-SPHEREx-EYE | Data Science yoxlama skripti
-Işlət:  python validate.py
-spectral_classifier.py ilə eyni qovluqda olmalıdır. Yalnız numpy lazımdır.
-
-DİQQƏT: 1-ci və 2-ci test sintetik (model) spektrlərlədir, yəni kodun öz
-daxili ardıcıllığını yoxlayır. Real SPHEREx ölçməsi DEYİL. Münsiflərə belə de.
-"""
 import numpy as np
 
 try:
@@ -60,8 +52,8 @@ def test_snr(n=50):
     print("(snr_peak gözlənənə yaxın olmalıdır; kiçik amplitudada küy üzündən bir az yuxarı çıxa bilər)")
 
 
-# BA-nın verdiyi hədəflər (PM dəyərləri SIMBAD-da bir dəfə yoxlanmalıdır)
-#  (ad, RA, DEC, PM "/il, DSS-də görünür?)  - WISE 0855 və Luhman 16 yalnız IR hekayəsi üçündür
+
+
 TARGETS = [
     ("Barnard",    269.4521,  4.6933, 10.3, True),
     ("Kapteyn",     77.9192, -45.0183, 8.6, True),
@@ -85,7 +77,7 @@ def test_motion(years=43.0, fov_arcmin=15.0, px=600):
 
 
 def report(rows):
-    """rows: [(sahə_adı, tapılan_xy, həqiqi_xy, snr_siyahısı), ...] -> cədvəl"""
+
     print("\nsahə          precision  recall    F1     TP FP FN  orta SNR")
     P, R = [], []
     for name, det, tru, snrs in rows:
