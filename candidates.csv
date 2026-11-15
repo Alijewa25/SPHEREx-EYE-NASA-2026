@@ -1,17 +1,9 @@
 candidate_id,ra_deg,dec_deg,survey_epoch1,survey_epoch2,date_obs1,date_obs2,pixel_scale_arcsec,centroid1_x,centroid1_y,centroid2_x,centroid2_y,motion_arcsec,pm_arcsec_yr,snr,spectral_class,spectral_source,confidence,data_source,known_match,review_status
-SPX-2026-27,77.91478137293704,-44.989758250503506,DSS1 Red,DSS2 IR,1953-09-23,,1.5,303,378,307,368,16.16,0.376,0.8,H2O,model,0.682,skyview_fits:kapteyn_star,,needs_review
-SPX-2026-26,77.76066999997536,-44.90089883970037,DSS1 Red,DSS2 IR,1953-09-23,,1.5,582,587,569,581,21.48,0.499,1.4,H2O,model,0.6,skyview_fits:kapteyn_star,,needs_review
-SPX-2026-29,77.92714884576374,-44.95600808218352,DSS1 Red,DSS2 IR,1953-09-23,,1.5,270,447,286,449,24.19,0.562,1.2,H2O,model,0.587,skyview_fits:kapteyn_star,,needs_review
-SPX-2026-40,77.95368183941781,-45.017253145354864,DSS1 Red,DSS2 IR,1953-09-23,,1.5,246,321,241,302,29.47,0.685,2.2,H2O,model,0.619,skyview_fits:kapteyn_star,,needs_review
-SPX-2026-25,77.85171434677525,-45.01348846140115,DSS1 Red,DSS2 IR,1953-09-23,,1.5,430,293,414,311,36.12,0.84,7.0,H2O,model,0.666,skyview_fits:kapteyn_star,,needs_review
-SPX-2026-16,77.8865164261184,-44.964753687950086,DSS1 Red,DSS2 IR,1953-09-23,,1.5,346,456,355,428,44.12,1.026,1.9,H2O,model,0.567,skyview_fits:kapteyn_star,,needs_review
-SPX-2026-08,77.81631631276761,-45.03262881369654,DSS1 Red,DSS2 IR,1953-09-23,,1.5,458,175,474,265,137.12,3.189,1.4,none,model,0.0,skyview_fits:kapteyn_star,,needs_review
-SPX-2026-07,77.83577218873455,-45.03306129674724,DSS1 Red,DSS2 IR,1953-09-23,,1.5,429,174,441,264,136.19,3.167,1.5,none,model,0.0,skyview_fits:kapteyn_star,,needs_review
-SPX-2026-80,217.39557926365245,-62.75502103624986,DSS1 Red,DSS2 IR,1953-09-23,,1.5,344,110,336,118,16.97,0.395,0.9,H2O,model,0.518,skyview_fits:proxima_cen,,needs_review
-SPX-2026-82,217.64601555137227,-62.77444074337412,DSS1 Red,DSS2 IR,1953-09-23,,1.5,53,80,61,71,18.06,0.42,1.1,CH4,model,0.553,skyview_fits:proxima_cen,,needs_review
-SPX-2026-72,217.23600995591013,-62.66030934312957,DSS1 Red,DSS2 IR,1953-09-23,,1.5,501,352,512,345,19.56,0.455,7.6,H2O,model,0.565,skyview_fits:proxima_cen,,needs_review
-SPX-2026-75,217.45656645621128,-62.762105538011156,DSS1 Red,DSS2 IR,1953-09-23,,1.5,280,108,269,101,19.56,0.455,3.1,H2O,model,1.0,skyview_fits:proxima_cen,,needs_review
-SPX-2026-74,217.5321537903417,-62.76957033214626,DSS1 Red,DSS2 IR,1953-09-23,,1.5,177,93,186,83,20.18,0.469,4.7,H2O,model,0.537,skyview_fits:proxima_cen,,needs_review
-SPX-2026-44,217.67573247504,-62.62522441097631,DSS1 Red,DSS2 IR,1953-09-23,,1.5,28,412,27,429,25.54,0.594,8.2,H2O,model,0.657,skyview_fits:proxima_cen,,needs_review
-SPX-2026-17,217.34853095127283,-62.652085392164004,DSS1 Red,DSS2 IR,1953-09-23,,1.5,371,359,388,365,27.04,0.629,4.6,H2O,model,0.608,skyview_fits:proxima_cen,,needs_review
-SPX-2026-78,217.38478286912436,-62.67085143734917,DSS1 Red,DSS2 IR,1953-09-23,,1.5,367,330,348,320,32.21,0.749,-0.3,CH4,model,0.515,skyview_fits:proxima_cen,,needs_review
+,,,,,,,,,,,,10.06,0.234,23.4,H2O,,97.4,,,needs_review
+,,,,,,,,,,,,10.61,0.247,9.2,H2O,,97.3,,,needs_review
+,,,,,,,,,,,,11.42,0.266,11.1,H2O,,97.2,,,needs_review
+,,,,,,,,,,,,12.09,0.281,17.2,H2O,,97.1,,,needs_review
+,,,,,,,,,,,,12.09,0.281,15.9,H2O,,97.1,,,needs_review
+,,,,,,,,,,,,12.73,0.296,13.4,H2O,,97.0,,,needs_review
+,,,,,,,,,,,,13.42,0.312,14.1,H2O,,96.9,,,needs_review
+,,,,,,,,,,,,13.58,0.316,21.9,H2O,,96.9,,,needs_review
